@@ -54,6 +54,12 @@ its own location. That works from the source tree, but colcon installs it to
 repository root in that case; the launch file raises an error naming the variable rather
 than failing obscurely.
 
+## `uavsim down` can report PX4 as still alive
+
+`down --gazebo` sometimes prints `WARNING: N px4 still alive`. PX4 SITL exits a second or
+two after its DDS agent and Gazebo go, so the check runs slightly too early. Re-check with
+`pgrep -x px4` before doing anything about it; in practice the processes are gone.
+
 ## Low real-time factor
 
 A 4 + 2 fleet with cameras runs at roughly **0.3 RTF** on a normal workstation, and

@@ -111,9 +111,8 @@ Everything you normally change lives in one scenario file:
 
 ```yaml
 fleet:
-  - {type: ardupilot_iris_gimbal, count: 4}
+  - {type: ardupilot_iris_gimbal, count: 6}
   - {type: px4_x500,              count: 2}
-  - {type: ardupilot_zephyr,      count: 1}
 ```
 
 Re-run `uavsim up`. Nothing else needs editing — no world file, no model directories,
