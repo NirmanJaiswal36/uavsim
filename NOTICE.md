@@ -1,6 +1,6 @@
 # Third-party notices
 
-`uavsim` is distributed under the LGPL-3.0 (see [`LICENSE.md`](LICENSE.md)). It bundles
+`uavsim` is distributed under the LGPL-3.0 (see [`LICENSE`](LICENSE)). It bundles
 the following third-party work.
 
 ## ArduPilot Gazebo plugins — `gz_plugins/`

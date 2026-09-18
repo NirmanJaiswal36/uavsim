@@ -268,7 +268,7 @@ They need no Gazebo and no SITL, and run in under a second.
 
 ## Licence
 
-LGPL-3.0. See [`LICENSE.md`](LICENSE.md).
+LGPL-3.0. See [`LICENSE`](LICENSE).
 
 This repository bundles the [ArduPilot Gazebo plugin](https://github.com/ArduPilot/ardupilot_gazebo)
 unmodified in [`gz_plugins/`](gz_plugins/), and third-party aircraft meshes.
