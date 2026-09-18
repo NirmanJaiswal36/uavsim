@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "backend",
+  "type": "object",
+  "required": ["id", "adapter"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "description": {"type": "string"},
+    "adapter": {"type": "string", "pattern": "^[A-Za-z0-9_]+:[A-Za-z0-9_]+$",
+                "description": "<module>:<class>, module resolved inside this backend directory"},
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executables": {"type": "array", "items": {"type": "string"}},
+        "paths": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "settings": {"type": "object", "description": "adapter defaults, overridable per scenario"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocols": {"type": "array", "items": {"enum": ["mavlink2", "dds"]}},
+        "ros2_native": {"type": "boolean"},
+        "offboard": {"type": "array", "items": {"type": "string"}},
+        "sim_time": {"enum": ["lockstep", "clock", "none"]}
+      }
+    }
+  }
+}

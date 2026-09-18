@@ -1,0 +1,2139 @@
+<!-- Forest region-of-interest scenery, originally extracted from the legacy
+     forest.sdf world. This is now maintained by hand: it is plain SDF, edit it
+     directly. Included by worlds/templates/base_world.sdf.j2.
+     Scenery of the forest region of interest, centred on the world origin.
+     291 entities. Fire/casualty targets are placed by the
+     scenario, see roi_forest.yaml. -->
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch</name>
+      <pose>2.71574 -2.80395 0 0 0 0.006057</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_0</name>
+      <pose>-12.2297 -2.64582 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_1</name>
+      <pose>2.62754 12.1062 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_2</name>
+      <pose>-12.0931 11.9289 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_3</name>
+      <pose>16.9776 12.1962 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_4</name>
+      <pose>2.28684 26.938 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_5</name>
+      <pose>16.5899 26.9995 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_6</name>
+      <pose>1.94614 41.7698 0 0 0 0</pose>
+    </include>
+    <model name="axes">
+      <static>1</static>
+      <link name="link">
+        <visual name="r">
+          <cast_shadows>0</cast_shadows>
+          <pose>5 0 0.1 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>10 0.01 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 0 0 0.8</ambient>
+            <diffuse>1 0 0 0.8</diffuse>
+            <emissive>1 0 0 0.8</emissive>
+            <specular>0.5 0.5 0.5 0.8</specular>
+          </material>
+        </visual>
+        <visual name="g">
+          <cast_shadows>0</cast_shadows>
+          <pose>0 5 0.1 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.01 10 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 1 0 0.8</ambient>
+            <diffuse>0 1 0 0.8</diffuse>
+            <emissive>0 1 0 0.8</emissive>
+            <specular>0.5 0.5 0.5 0.8</specular>
+          </material>
+        </visual>
+        <visual name="b">
+          <cast_shadows>0</cast_shadows>
+          <pose>0 0 5.1 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.01 0.01 10</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 1 0.8</ambient>
+            <diffuse>0 0 1 0.8</diffuse>
+            <emissive>0 0 1 0.8</emissive>
+            <specular>0.5 0.5 0.5 0.8</specular>
+          </material>
+        </visual>
+        <sensor name="navsat_sensor" type="navsat">
+          <always_on>1</always_on>
+          <update_rate>1</update_rate>
+        </sensor>
+      </link>
+    </model>
+    <model name="boundary_origin">
+      <static>true</static>
+      <pose>0.000 0.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_00">
+      <static>true</static>
+      <pose>60.000 0.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_01">
+      <static>true</static>
+      <pose>59.088 10.419 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_02">
+      <static>true</static>
+      <pose>56.382 20.521 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_03">
+      <static>true</static>
+      <pose>51.962 30.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_04">
+      <static>true</static>
+      <pose>45.963 38.567 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_05">
+      <static>true</static>
+      <pose>38.567 45.963 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_06">
+      <static>true</static>
+      <pose>30.000 51.962 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_07">
+      <static>true</static>
+      <pose>20.521 56.382 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_08">
+      <static>true</static>
+      <pose>10.419 59.088 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_09">
+      <static>true</static>
+      <pose>0.000 60.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_10">
+      <static>true</static>
+      <pose>-10.419 59.088 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_11">
+      <static>true</static>
+      <pose>-20.521 56.382 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_12">
+      <static>true</static>
+      <pose>-30.000 51.962 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_13">
+      <static>true</static>
+      <pose>-38.567 45.963 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_14">
+      <static>true</static>
+      <pose>-45.963 38.567 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_15">
+      <static>true</static>
+      <pose>-51.962 30.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_16">
+      <static>true</static>
+      <pose>-56.382 20.521 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_17">
+      <static>true</static>
+      <pose>-59.088 10.419 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_18">
+      <static>true</static>
+      <pose>-60.000 0.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_19">
+      <static>true</static>
+      <pose>-59.088 -10.419 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_20">
+      <static>true</static>
+      <pose>-56.382 -20.521 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_21">
+      <static>true</static>
+      <pose>-51.962 -30.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_22">
+      <static>true</static>
+      <pose>-45.963 -38.567 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_23">
+      <static>true</static>
+      <pose>-38.567 -45.963 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_24">
+      <static>true</static>
+      <pose>-30.000 -51.962 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_25">
+      <static>true</static>
+      <pose>-20.521 -56.382 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_26">
+      <static>true</static>
+      <pose>-10.419 -59.088 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_27">
+      <static>true</static>
+      <pose>0.000 -60.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_28">
+      <static>true</static>
+      <pose>10.419 -59.088 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_29">
+      <static>true</static>
+      <pose>20.521 -56.382 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_30">
+      <static>true</static>
+      <pose>30.000 -51.962 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_31">
+      <static>true</static>
+      <pose>38.567 -45.963 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_32">
+      <static>true</static>
+      <pose>45.963 -38.567 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_33">
+      <static>true</static>
+      <pose>51.962 -30.000 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_34">
+      <static>true</static>
+      <pose>56.382 -20.521 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="boundary_35">
+      <static>true</static>
+      <pose>59.088 -10.419 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.20</radius>
+              <length>2.0</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_7</name>
+      <pose>1.60544 56.60160 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_8</name>
+      <pose>16.24920 41.83130 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_9</name>
+      <pose>-12.43380 26.76070 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_10</name>
+      <pose>-12.77450 41.59250 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_11</name>
+      <pose>17.06580 -2.80395 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_12</name>
+      <pose>3.05644 -17.63575 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_ext_13</name>
+      <pose>-11.88900 -17.47762 0.00000 0 0 0.00000</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-3_-2</name>
+      <pose>-25.70216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-3_-1</name>
+      <pose>-10.98216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-3_0</name>
+      <pose>3.73784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-3_1</name>
+      <pose>18.08784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_-3</name>
+      <pose>-40.76286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_-2</name>
+      <pose>-26.04286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_-1</name>
+      <pose>-11.32286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_0</name>
+      <pose>3.39714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_1</name>
+      <pose>17.74714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-2_2</name>
+      <pose>32.09714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-1_-3</name>
+      <pose>-41.10356 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-1_-2</name>
+      <pose>-26.38356 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-1_1</name>
+      <pose>17.40644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-1_2</name>
+      <pose>31.75644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_-1_3</name>
+      <pose>46.10644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_0_-3</name>
+      <pose>-41.44426 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_0_-2</name>
+      <pose>-26.72426 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_0_2</name>
+      <pose>31.41574 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_0_3</name>
+      <pose>45.76574 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_1_-3</name>
+      <pose>-41.78496 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_1_-2</name>
+      <pose>-27.06496 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_1_2</name>
+      <pose>31.07504 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_1_3</name>
+      <pose>45.42504 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_2_-3</name>
+      <pose>-42.12566 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_2_-2</name>
+      <pose>-27.40566 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_2_2</name>
+      <pose>30.73434 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_2_3</name>
+      <pose>45.08434 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_3_-2</name>
+      <pose>-27.74636 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_fill_3_2</name>
+      <pose>30.39364 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-4_-1</name>
+      <pose>-10.64146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-4_0</name>
+      <pose>4.07854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-4_1</name>
+      <pose>18.42854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-3_-3</name>
+      <pose>-40.42216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-3_2</name>
+      <pose>32.43784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-2_-4</name>
+      <pose>-55.48286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-2_3</name>
+      <pose>46.44714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-1_-4</name>
+      <pose>-55.82356 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_-1_4</name>
+      <pose>60.45644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_0_-4</name>
+      <pose>-56.16426 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_0_4</name>
+      <pose>60.11574 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_1_-4</name>
+      <pose>-56.50496 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_1_4</name>
+      <pose>59.77504 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_2_-4</name>
+      <pose>-56.84566 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_2_4</name>
+      <pose>59.43434 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_3_-3</name>
+      <pose>-42.46636 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_3_3</name>
+      <pose>44.74364 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_4_-2</name>
+      <pose>-28.08706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_4_-1</name>
+      <pose>-13.36706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_4_1</name>
+      <pose>15.70294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grasspatch_outer_4_2</name>
+      <pose>30.05294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_-3</name>
+      <pose>-39.40006 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_-2</name>
+      <pose>-24.68006 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_-1</name>
+      <pose>-9.96006 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_0</name>
+      <pose>4.75994 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_1</name>
+      <pose>19.10994 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_2</name>
+      <pose>33.45994 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-6_3</name>
+      <pose>47.80994 -91.79475 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_-5</name>
+      <pose>-69.18076 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_-4</name>
+      <pose>-54.46076 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_-3</name>
+      <pose>-39.74076 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_-2</name>
+      <pose>-25.02076 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_-1</name>
+      <pose>-10.30076 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_0</name>
+      <pose>4.41924 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_1</name>
+      <pose>18.76924 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_2</name>
+      <pose>33.11924 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_3</name>
+      <pose>47.46924 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-5_4</name>
+      <pose>61.81924 -76.96295 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_-6</name>
+      <pose>-84.24146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_-5</name>
+      <pose>-69.52146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_-4</name>
+      <pose>-54.80146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_-3</name>
+      <pose>-40.08146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_-2</name>
+      <pose>-25.36146 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_2</name>
+      <pose>32.77854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_3</name>
+      <pose>47.12854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_4</name>
+      <pose>61.47854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-4_5</name>
+      <pose>75.82854 -62.13115 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_-6</name>
+      <pose>-84.58216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_-5</name>
+      <pose>-69.86216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_-4</name>
+      <pose>-55.14216 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_3</name>
+      <pose>46.78784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_4</name>
+      <pose>61.13784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_5</name>
+      <pose>75.48784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-3_6</name>
+      <pose>89.83784 -47.29935 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-2_-6</name>
+      <pose>-84.92286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-2_-5</name>
+      <pose>-70.20286 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-2_4</name>
+      <pose>60.79714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-2_5</name>
+      <pose>75.14714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-2_6</name>
+      <pose>89.49714 -32.46755 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-1_-6</name>
+      <pose>-85.26356 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-1_-5</name>
+      <pose>-70.54356 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-1_5</name>
+      <pose>74.80644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_-1_6</name>
+      <pose>89.15644 -17.63575 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_0_-6</name>
+      <pose>-85.60426 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_0_-5</name>
+      <pose>-70.88426 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_0_5</name>
+      <pose>74.46574 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_0_6</name>
+      <pose>88.81574 -2.80395 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_1_-6</name>
+      <pose>-85.94496 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_1_-5</name>
+      <pose>-71.22496 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_1_5</name>
+      <pose>74.12504 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_1_6</name>
+      <pose>88.47504 12.02785 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_2_-6</name>
+      <pose>-86.28566 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_2_-5</name>
+      <pose>-71.56566 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_2_5</name>
+      <pose>73.78434 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_2_6</name>
+      <pose>88.13434 26.85965 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_-6</name>
+      <pose>-86.62636 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_-5</name>
+      <pose>-71.90636 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_-4</name>
+      <pose>-57.18636 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_4</name>
+      <pose>59.09364 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_5</name>
+      <pose>73.44364 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_3_6</name>
+      <pose>87.79364 41.69145 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_-6</name>
+      <pose>-86.96706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_-5</name>
+      <pose>-72.24706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_-4</name>
+      <pose>-57.52706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_-3</name>
+      <pose>-42.80706 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_3</name>
+      <pose>44.40294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_4</name>
+      <pose>58.75294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_5</name>
+      <pose>73.10294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_4_6</name>
+      <pose>87.45294 56.52325 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_-5</name>
+      <pose>-72.58776 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_-4</name>
+      <pose>-57.86776 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_-3</name>
+      <pose>-43.14776 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_-2</name>
+      <pose>-28.42776 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_-1</name>
+      <pose>-13.70776 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_0</name>
+      <pose>1.01224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_1</name>
+      <pose>15.36224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_2</name>
+      <pose>29.71224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_3</name>
+      <pose>44.06224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_4</name>
+      <pose>58.41224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_5_5</name>
+      <pose>72.76224 71.35505 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_-4</name>
+      <pose>-58.20846 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_-3</name>
+      <pose>-43.48846 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_-2</name>
+      <pose>-28.76846 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_-1</name>
+      <pose>-14.04846 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_0</name>
+      <pose>0.67154 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_1</name>
+      <pose>15.02154 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_2</name>
+      <pose>29.37154 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_3</name>
+      <pose>43.72154 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://grasspatch_visual</uri>
+      <name>grassfield_6_4</name>
+      <pose>58.07154 86.18685 0.00000 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_1</name>
+      <pose>8.8409 5.3938 0 0 0 2.5575</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_2</name>
+      <pose>10.4496 -7.4725 0 0 0 0.2396</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_3</name>
+      <pose>-15.8656 27.9385 0 0 0 5.3511</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_4</name>
+      <pose>-7.9110 12.9613 0 0 0 2.0962</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_5</name>
+      <pose>19.0313 0.1998 0 0 0 2.7398</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_6</name>
+      <pose>-9.7665 -6.8732 0 0 0 0.4388</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_7</name>
+      <pose>-21.0358 7.0810 0 0 0 5.6859</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_8</name>
+      <pose>7.6313 9.4857 0 0 0 4.9617</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_9</name>
+      <pose>7.5960 -4.7439 0 0 0 3.6010</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_10</name>
+      <pose>10.4544 -16.9791 0 0 0 4.8280</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_11</name>
+      <pose>7.4577 -22.2386 0 0 0 1.2991</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_12</name>
+      <pose>-34.8896 -5.9932 0 0 0 5.0826</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_13</name>
+      <pose>-17.8041 13.2390 0 0 0 4.8311</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_14</name>
+      <pose>-12.3701 -28.5055 0 0 0 4.0089</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_15</name>
+      <pose>29.2942 -24.2037 0 0 0 3.0529</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_16</name>
+      <pose>-26.8464 27.0083 0 0 0 0.2000</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_17</name>
+      <pose>17.5062 38.1092 0 0 0 5.1508</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_18</name>
+      <pose>-26.8165 -41.1469 0 0 0 1.0684</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_19</name>
+      <pose>-17.9562 14.6293 0 0 0 0.4603</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Inside_20</name>
+      <pose>-25.5898 -12.6698 0 0 0 2.1107</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_1</name>
+      <pose>58.5180 36.1931 0 0 0 3.9458</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_2</name>
+      <pose>-37.3191 50.0876 0 0 0 1.4389</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_3</name>
+      <pose>-13.3677 -80.0434 0 0 0 5.7095</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_4</name>
+      <pose>84.8839 -4.3810 0 0 0 6.0543</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_5</name>
+      <pose>8.8303 84.2180 0 0 0 3.0383</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_6</name>
+      <pose>68.3059 -3.4545 0 0 0 2.7915</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_7</name>
+      <pose>85.6578 24.3788 0 0 0 0.8461</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_8</name>
+      <pose>-2.7558 68.8993 0 0 0 2.2109</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_9</name>
+      <pose>-65.7534 28.8135 0 0 0 2.6398</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_10</name>
+      <pose>60.8760 25.2644 0 0 0 2.2298</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_11</name>
+      <pose>-59.5377 26.5675 0 0 0 0.0538</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_12</name>
+      <pose>72.7771 36.2128 0 0 0 4.3596</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_13</name>
+      <pose>76.2273 -7.0374 0 0 0 1.6488</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_14</name>
+      <pose>0.4046 -79.0094 0 0 0 2.1027</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_15</name>
+      <pose>-47.8283 -57.1738 0 0 0 6.0896</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_16</name>
+      <pose>-81.9401 45.6942 0 0 0 4.5073</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_17</name>
+      <pose>-60.0063 62.2264 0 0 0 1.4756</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_18</name>
+      <pose>46.9476 -44.6963 0 0 0 0.3590</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_19</name>
+      <pose>-78.4398 -18.8507 0 0 0 0.9178</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_20</name>
+      <pose>73.9156 -43.1991 0 0 0 4.8741</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_21</name>
+      <pose>53.2508 54.2437 0 0 0 6.1226</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_22</name>
+      <pose>-55.3263 -58.6336 0 0 0 5.0383</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_23</name>
+      <pose>70.2078 28.8517 0 0 0 0.8542</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_24</name>
+      <pose>-50.3856 69.7733 0 0 0 5.4704</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_25</name>
+      <pose>87.9772 -10.8676 0 0 0 4.2003</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_26</name>
+      <pose>18.6306 -70.5174 0 0 0 0.1775</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_27</name>
+      <pose>55.8097 -58.3973 0 0 0 3.2324</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_28</name>
+      <pose>-66.9454 -0.0515 0 0 0 3.4255</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_29</name>
+      <pose>59.0290 -46.7253 0 0 0 2.1357</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_30</name>
+      <pose>-71.7268 -2.8414 0 0 0 1.2765</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_31</name>
+      <pose>-59.0376 43.9392 0 0 0 5.8923</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_32</name>
+      <pose>21.1762 61.3406 0 0 0 1.2529</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_33</name>
+      <pose>75.6948 -61.9751 0 0 0 1.2193</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_34</name>
+      <pose>70.8355 41.9521 0 0 0 1.9909</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_35</name>
+      <pose>-72.2089 -17.4232 0 0 0 5.8365</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_36</name>
+      <pose>-89.0309 -19.4217 0 0 0 4.9366</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_37</name>
+      <pose>-9.6768 -78.8308 0 0 0 4.8793</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_38</name>
+      <pose>35.4075 -61.8256 0 0 0 3.6295</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outside_39</name>
+      <pose>-63.0658 48.4047 0 0 0 1.4077</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri>
+      <name>Pine_Tree_Outside_40</name>
+      <pose>56.2058 56.9926 0 0 0 3.9864</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_1</name>
+      <pose>37.3204 20.5371 0 0 0 5.4793</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_2</name>
+      <pose>-33.6122 1.9969 0 0 0 0.8294</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_3</name>
+      <pose>-17.9892 39.4330 0 0 0 4.9895</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_4</name>
+      <pose>37.1100 26.0511 0 0 0 6.2447</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_5</name>
+      <pose>-1.5633 17.0125 0 0 0 3.5855</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_6</name>
+      <pose>-0.9122 39.1798 0 0 0 5.5296</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_7</name>
+      <pose>7.4831 50.8299 0 0 0 3.9645</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_8</name>
+      <pose>12.0861 1.7981 0 0 0 1.2571</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_9</name>
+      <pose>-50.7086 -0.0785 0 0 0 1.1700</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_10</name>
+      <pose>19.3744 32.7209 0 0 0 5.5580</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_11</name>
+      <pose>29.0348 -15.0989 0 0 0 2.9280</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_12</name>
+      <pose>-1.3546 -38.9174 0 0 0 0.8146</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_13</name>
+      <pose>-36.2047 8.1045 0 0 0 4.7026</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_14</name>
+      <pose>14.8755 12.5254 0 0 0 5.2920</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Inside_15</name>
+      <pose>5.2997 -18.1802 0 0 0 1.7212</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_1</name>
+      <pose>78.2154 21.2746 0 0 0 4.8549</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_2</name>
+      <pose>61.3495 50.1481 0 0 0 5.7377</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_3</name>
+      <pose>39.2642 73.1528 0 0 0 1.4300</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_4</name>
+      <pose>24.2865 88.9782 0 0 0 3.2529</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_5</name>
+      <pose>1.9238 72.6828 0 0 0 3.7079</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_6</name>
+      <pose>74.0737 -58.9320 0 0 0 6.2454</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_7</name>
+      <pose>-62.6893 -9.3964 0 0 0 4.8341</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_8</name>
+      <pose>52.0772 -65.3943 0 0 0 6.1688</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_9</name>
+      <pose>-46.7625 43.9567 0 0 0 1.9472</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_10</name>
+      <pose>86.5874 28.7968 0 0 0 3.8839</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_11</name>
+      <pose>93.1699 27.0959 0 0 0 2.8822</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_12</name>
+      <pose>81.4045 -42.6921 0 0 0 4.1181</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_13</name>
+      <pose>63.0280 33.8702 0 0 0 5.1224</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_14</name>
+      <pose>-65.6649 4.1214 0 0 0 0.8921</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_15</name>
+      <pose>-76.5123 52.3047 0 0 0 2.8411</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_16</name>
+      <pose>62.7274 -9.8853 0 0 0 3.8636</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_17</name>
+      <pose>-22.9402 61.9357 0 0 0 2.8396</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_18</name>
+      <pose>62.0877 -78.0345 0 0 0 3.6458</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_19</name>
+      <pose>-79.2827 -58.8958 0 0 0 1.4143</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_20</name>
+      <pose>-63.1277 4.3661 0 0 0 5.3922</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_21</name>
+      <pose>-73.4677 22.4920 0 0 0 2.1724</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_22</name>
+      <pose>-49.8447 69.2211 0 0 0 4.9602</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_23</name>
+      <pose>-47.9660 62.6804 0 0 0 0.0492</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_24</name>
+      <pose>79.1271 -41.6629 0 0 0 5.0221</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree</uri>
+      <name>Oak_Tree_Outer_Extra_25</name>
+      <pose>-5.9520 -80.5053 0 0 0 1.7563</pose>
+    </include>

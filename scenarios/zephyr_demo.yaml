@@ -1,0 +1,35 @@
+# A single ArduPlane flying wing on the GCS runway.
+#
+# Fixed-wing vehicles are allocated runway slots rather than landing pads, and
+# take off by rolling towards the forest. Needs 'arduplane' built:
+#   cd ~/ardupilot && ./waf configure --board sitl && ./waf plane
+
+name: zephyr_demo
+
+world:
+  name: zephyr
+  roi: roi_forest
+  gcs_pose: [-500, 0, 0, 0, 0, 0]
+
+targets:
+  fires: false
+  casualties:
+    count: 0
+
+fleet:
+  - type: ardupilot_zephyr
+    count: 1
+
+spawn:
+  spacing_m: 6
+
+ros2:
+  bridge: true
+  clock: true
+
+supervisor: tmux
+
+gazebo:
+  headless: false
+  verbosity: 3
+  start: true

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "payload",
+  "type": "object",
+  "required": ["id"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "description": {"type": "string"},
+    "fragment": {"type": "string", "description": "Jinja template appended to the instance model"},
+    "mount": {"type": "string", "description": "name of an airframe mount this payload attaches to"},
+    "params": {"type": "object"},
+    "singleton": {"type": "boolean",
+                  "description": "true when the payload uses a global resource (absolute topic, fixed port) and so may appear at most once in a run"},
+    "backend_fragments": {
+      "type": "object",
+      "description": "backend id -> Jinja template injected into that backend's binding (e.g. ArduPilot <control> blocks)",
+      "additionalProperties": {"type": "string"}
+    },
+    "provides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "kind": {"type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$"},
+          "role": {"enum": ["sensor", "actuator"]},
+          "rate_hz": {"type": "number"},
+          "frame": {"type": "string"},
+          "gz_topic": {"type": "string"},
+          "axes": {"type": "array", "items": {"type": "string"}},
+          "ros": {
+            "type": "object",
+            "required": ["topic", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "topic": {"type": "string"},
+              "type": {"type": "string"},
+              "gz_type": {"type": "string"},
+              "direction": {"enum": ["GZ_TO_ROS", "ROS_TO_GZ", "BIDIRECTIONAL"]}
+            }
+          }
+        }
+      }
+    }
+  }
+}

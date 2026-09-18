@@ -1,0 +1,30 @@
+# The world and one vehicle, with no autopilot at all.
+# Useful for looking at the environment, taking screenshots, or running
+# perception work where SITL is not installed.
+
+name: forest_static
+
+world:
+  name: rescue_static
+  roi: roi_forest
+  gcs_pose: [-500, 0, 0, 0, 0, 0]
+
+targets:
+  fires: false
+  casualties:
+    count: 0
+    # seed: 3
+
+fleet:
+  - type: static_iris
+    count: 1
+
+ros2:
+  bridge: true
+  clock: true
+
+supervisor: subprocess
+
+gazebo:
+  headless: true               # server only: no GUI window, cameras still render
+  verbosity: 2

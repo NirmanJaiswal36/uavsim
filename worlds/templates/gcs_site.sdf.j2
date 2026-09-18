@@ -1,0 +1,111 @@
+{# Ground control station site: apron pads, runway, shelter, mast, windsock.
+
+   Every number comes from uavsim/site.py, the same object the allocator uses to
+   place vehicles, so what you see is where they spawn.
+
+   No <plane> geometry anywhere: a plane collision is an infinite half-space in
+   DART, and a second one in the world makes the ground-contact LCP singular and
+   freezes the physics step. The runway and pads are thin boxes.
+
+   Stacked surfaces are kept >= 1 cm apart (terrain top -5 cm, apron/runway top
+   +1/+2 cm, pads 2-4 cm, centreline 4-6 cm): closer than that they z-fight
+   and flicker when viewed from a distance. #}
+    <model name="{{ site_name }}">
+      <static>true</static>
+      <pose>{{ pose }}</pose>
+      <link name="link">
+
+        <!-- runway: {{ site.runway_length_m }} m x {{ site.runway_width_m }} m, pointing at the ROI -->
+        <visual name="runway">
+          <pose>{{ site.runway_x0_m + site.runway_length_m / 2 }} 0 0.01 0 0 0</pose>
+          <geometry>
+            <box><size>{{ site.runway_length_m }} {{ site.runway_width_m }} 0.02</size></box>
+          </geometry>
+          <material>
+            <ambient>0.25 0.25 0.27 1</ambient>
+            <diffuse>0.3 0.3 0.32 1</diffuse>
+          </material>
+        </visual>
+        <collision name="runway_collision">
+          <pose>{{ site.runway_x0_m + site.runway_length_m / 2 }} 0 0.005 0 0 0</pose>
+          <geometry>
+            <box><size>{{ site.runway_length_m }} {{ site.runway_width_m }} 0.01</size></box>
+          </geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="centreline">
+          <pose>{{ site.runway_x0_m + site.runway_length_m / 2 }} 0 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>{{ site.runway_length_m - 8 }} 0.4 0.02</size></box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.9 0.9 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- apron and landing pads -->
+        <visual name="apron">
+          <pose>{{ site.apron_x_m }} {{ site.apron_y_m }} 0.005 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>{{ site.pad_rows * site.pad_spacing_m + 6 }} {{ site.pad_cols * site.pad_spacing_m + 6 }} 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.30 0.28 1</ambient><diffuse>0.38 0.36 0.33 1</diffuse>
+          </material>
+        </visual>
+{% for slot in pads %}
+        <visual name="pad_{{ loop.index0 }}">
+          <pose>{{ slot.x }} {{ slot.y }} 0.03 0 0 0</pose>
+          <geometry>
+            <cylinder><radius>{{ site.pad_radius_m }}</radius><length>0.02</length></cylinder>
+          </geometry>
+          <material>
+            <ambient>0.85 0.85 0.85 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+{% endfor %}
+
+        <!-- operations shelter -->
+        <visual name="shelter">
+          <pose>{{ site.apron_x_m }} {{ site.apron_y_m - (site.pad_cols * site.pad_spacing_m / 2) - 8 }} 1.5 0 0 0</pose>
+          <geometry><box><size>8 4 3</size></box></geometry>
+          <material>
+            <ambient>0.85 0.85 0.80 1</ambient><diffuse>0.9 0.9 0.85 1</diffuse>
+          </material>
+        </visual>
+        <collision name="shelter_collision">
+          <pose>{{ site.apron_x_m }} {{ site.apron_y_m - (site.pad_cols * site.pad_spacing_m / 2) - 8 }} 1.5 0 0 0</pose>
+          <geometry><box><size>8 4 3</size></box></geometry>
+        </collision>
+
+        <!-- antenna mast -->
+        <visual name="mast">
+          <pose>{{ site.apron_x_m + 6 }} {{ site.apron_y_m - (site.pad_cols * site.pad_spacing_m / 2) - 8 }} 5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>10</length></cylinder></geometry>
+          <material>
+            <ambient>0.6 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="mast_collision">
+          <pose>{{ site.apron_x_m + 6 }} {{ site.apron_y_m - (site.pad_cols * site.pad_spacing_m / 2) - 8 }} 5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>10</length></cylinder></geometry>
+        </collision>
+
+        <!-- windsock, next to the runway threshold -->
+        <visual name="windsock_pole">
+          <pose>{{ site.runway_x0_m }} {{ site.runway_width_m / 2 + 3 }} 2 0 0 0</pose>
+          <geometry><cylinder><radius>0.06</radius><length>4</length></cylinder></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <visual name="windsock">
+          <pose>{{ site.runway_x0_m + 0.9 }} {{ site.runway_width_m / 2 + 3 }} 3.9 0 1.5708 0</pose>
+          <geometry><cone><radius>0.35</radius><length>1.8</length></cone></geometry>
+          <material>
+            <ambient>0.9 0.45 0 1</ambient><diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+
+      </link>
+    </model>

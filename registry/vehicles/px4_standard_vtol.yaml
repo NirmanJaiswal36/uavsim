@@ -1,0 +1,4 @@
+id: px4_standard_vtol
+description: PX4 standard VTOL. Takes off from a pad, cruises like a plane.
+airframe: standard_vtol
+backend: px4

@@ -1,0 +1,41 @@
+id: gimbal_camera_3axis
+description: >
+  3-axis gimbal (models/gimbal_small_3d) carrying a forward camera.
+  Joint commands are per-instance gz topics; on ArduPilot the same joints are
+  also driven from RC channels 6/7/8 via the backend fragment.
+  Note: gimbal_small_3d embeds GstCameraPlugin on UDP 5600 for every instance,
+  but streaming only starts when that model's own enable topic is published, so
+  enable at most one video stream at a time.
+
+fragment: fragment.sdf.j2
+mount: belly
+
+params:
+  rc_control: true            # ArduPilot: expose the gimbal on RC channels 6/7/8
+  p_gain: 2.0
+
+backend_fragments:
+  ardupilot: backends/ardupilot.sdf.j2
+
+provides:
+  - id: camera
+    kind: camera.rgb
+    role: sensor
+    rate_hz: 10
+    frame: pitch_link
+    gz_topic: "/world/{world}/model/{name}/model/{payload}/link/pitch_link/sensor/camera/image"
+    ros:
+      topic: "/{name}/{payload}/image_raw"
+      type: sensor_msgs/msg/Image
+      gz_type: gz.msgs.Image
+      direction: GZ_TO_ROS
+  - id: gimbal
+    kind: gimbal.3axis
+    role: actuator
+    axes: [roll, pitch, yaw]
+    gz_topic: "/{name}/{payload}/cmd_{axis}"
+    ros:
+      topic: "/{name}/{payload}/cmd_{axis}"
+      type: std_msgs/msg/Float64
+      gz_type: gz.msgs.Double
+      direction: ROS_TO_GZ

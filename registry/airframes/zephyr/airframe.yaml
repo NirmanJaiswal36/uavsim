@@ -1,0 +1,26 @@
+id: zephyr
+description: Zephyr flying wing (ArduPlane reference airframe). Rolls for take-off.
+class: fixed_wing
+launch: runway
+
+model_uri: model://zephyr
+base_link: zephyr::wing
+imu_sensor: zephyr::imu_link::imu_sensor
+
+geometry:
+  footprint_radius_m: 1.2
+  spawn_z_m: 0.2
+
+performance:
+  mass_kg: 1.5
+  cruise_mps: 18.0
+  max_mps: 30.0
+  endurance_min: 35.0
+  max_payload_kg: 0.2
+
+bindings:
+  ardupilot:
+    overlay: bindings/ardupilot.sdf.j2
+    vars:
+      vehicle: ArduPlane
+      frame: gazebo-zephyr

@@ -1,0 +1,27 @@
+id: px4
+description: >
+  PX4 SITL in standalone Gazebo mode. We spawn the model ourselves and attach
+  PX4 to it with PX4_GZ_MODEL_NAME, so one orchestrator owns every entity in the
+  world regardless of autopilot.
+adapter: adapter:PX4Adapter
+
+requires:
+  executables: [MicroXRCEAgent]
+
+settings:
+  px4_root: ~/PX4-Autopilot
+  px4_binary: build/px4_sitl_default/bin/px4
+  model_path: Tools/simulation/gz/models       # added to GZ_SIM_RESOURCE_PATH
+  dds_agent: MicroXRCEAgent
+  dds_port: 8888
+  start_dds_agent: true
+  gcs_port_base: 18570                          # PX4 udp_gcs_port_local = 18570 + instance
+  offboard_port_base: 14540                     # udp_offboard_port_remote = 14540 + instance
+  start_stagger_s: 2.0
+  ready_timeout_s: 60.0
+
+capabilities:
+  protocols: [mavlink2, dds]
+  ros2_native: true
+  offboard: [px4_msgs_offboard, mavlink_guided]
+  sim_time: clock

@@ -1,0 +1,35 @@
+id: iris
+description: 3DR Iris quadrotor with standoffs (ArduPilot reference airframe).
+class: multirotor
+launch: pad
+
+model_uri: model://iris_with_standoffs
+base_link: iris_with_standoffs::base_link
+imu_sensor: iris_with_standoffs::imu_link::imu_sensor
+
+geometry:
+  footprint_radius_m: 0.35
+  spawn_z_m: 0.195          # wheels-down clearance used by the legacy forest world
+
+performance:
+  mass_kg: 1.5
+  cruise_mps: 10.0
+  max_mps: 15.0
+  endurance_min: 18.0
+  max_payload_kg: 0.4
+
+mounts:
+  belly:
+    parent: iris_with_standoffs::base_link
+    pose: [0, -0.01, -0.124923, 90, 0, 90]
+    degrees: true
+
+bindings:
+  ardupilot:
+    overlay: bindings/ardupilot.sdf.j2
+    vars:
+      vehicle: ArduCopter
+      frame: gazebo-iris
+  static:
+    overlay: bindings/static.sdf.j2
+

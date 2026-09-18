@@ -1,0 +1,45 @@
+id: px4_oakd_lite
+description: >
+  Declaration-only payload: the OAK-D Lite that PX4's own x500_depth model
+  already carries (merged into the airframe, so its links are unprefixed).
+  It contributes no SDF -- it only tells the bridge and the manifest which
+  topics that model publishes.
+  Marked singleton because the depth sensor inside PX4's OakD-Lite publishes to
+  the absolute topic /depth_camera, which a second instance would collide with.
+
+singleton: true
+
+provides:
+  - id: color
+    kind: camera.rgb
+    role: sensor
+    rate_hz: 30
+    frame: camera_link
+    gz_topic: "/world/{world}/model/{name}/link/camera_link/sensor/IMX214/image"
+    ros:
+      topic: "/{name}/{payload}/image_raw"
+      type: sensor_msgs/msg/Image
+      gz_type: gz.msgs.Image
+      direction: GZ_TO_ROS
+  - id: depth
+    kind: camera.depth
+    role: sensor
+    rate_hz: 30
+    frame: camera_link
+    gz_topic: "/depth_camera"
+    ros:
+      topic: "/{name}/{payload}/depth"
+      type: sensor_msgs/msg/Image
+      gz_type: gz.msgs.Image
+      direction: GZ_TO_ROS
+  - id: points
+    kind: pointcloud
+    role: sensor
+    rate_hz: 30
+    frame: camera_link
+    gz_topic: "/depth_camera/points"
+    ros:
+      topic: "/{name}/{payload}/points"
+      type: sensor_msgs/msg/PointCloud2
+      gz_type: gz.msgs.PointCloudPacked
+      direction: GZ_TO_ROS

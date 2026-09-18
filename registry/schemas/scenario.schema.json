@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "scenario",
+  "type": "object",
+  "required": ["fleet"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {"type": "string"},
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "roi": {"type": "string"},
+        "gcs_site": {"type": "string"},
+        "gcs_pose": {"type": "array", "items": {"type": "number"}, "minItems": 6, "maxItems": 6},
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "latitude_deg": {"type": "number"},
+            "longitude_deg": {"type": "number"},
+            "elevation_m": {"type": "number"}
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fires": {"type": "boolean"},
+        "casualties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": {"type": "integer", "minimum": 0},
+            "seed": {"type": "integer"},
+            "positions": {
+              "type": "array",
+              "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 3}
+            }
+          }
+        }
+      }
+    },
+    "fleet": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "string"},
+          "count": {"type": "integer", "minimum": 1},
+          "name_prefix": {"type": "string"},
+          "backend_config": {"type": "object"},
+          "payload_params": {"type": "object"}
+        }
+      }
+    },
+    "spawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "layout": {"enum": ["grid", "line"]},
+        "spacing_m": {"type": "number", "exclusiveMinimum": 0},
+        "heading_deg": {"type": "number"}
+      }
+    },
+    "ros2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bridge": {"type": "boolean"},
+        "clock": {"type": "boolean"}
+      }
+    },
+    "backends": {"type": "object", "description": "backend id -> settings overrides"},
+    "supervisor": {"enum": ["tmux", "subprocess"]},
+    "gazebo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "headless": {"type": "boolean"},
+        "verbosity": {"type": "integer", "minimum": 0, "maximum": 4},
+        "start": {"type": "boolean", "description": "false = attach to an already running server"}
+      }
+    }
+  }
+}

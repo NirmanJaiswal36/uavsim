@@ -1,0 +1,9 @@
+id: static_iris
+description: Iris with no autopilot -- world inspection, screenshots, CI.
+airframe: iris
+backend: static
+payloads:
+  - type: gimbal_camera_3axis
+    id: gimbal_cam
+    mount: belly
+    params: {rc_control: false}

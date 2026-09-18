@@ -1,0 +1,13 @@
+id: static
+description: >
+  No autopilot. The model is spawned and nothing else runs, which is what you
+  want for world/perception work, screenshots and CI where SITL is unavailable.
+adapter: adapter:StaticAdapter
+
+settings: {}
+
+capabilities:
+  protocols: []
+  ros2_native: false
+  offboard: []
+  sim_time: none

@@ -1,0 +1,33 @@
+id: ardupilot
+description: ArduPilot SITL driven through sim_vehicle.py, talking JSON FDM to ArduPilotPlugin.
+adapter: adapter:ArduPilotAdapter
+
+requires:
+  executables: [sim_vehicle.py]
+
+settings:
+  fdm_base: 9002            # Gazebo binds this; must be unique per vehicle
+  tcp_base: 5760            # SITL serial0, where that vehicle's MAVProxy attaches
+  # That vehicle's MAVProxy output. Deliberately NOT the conventional 14550:
+  # PX4 SITL binds 14580+instance for its own onboard MAVLink, so a 14550 base
+  # with a stride of 10 puts the 4th ArduPilot vehicle on top of the 1st PX4
+  # one, and the collision is silent -- PX4 wins the bind and the ArduPilot
+  # vehicle simply never reaches a GCS. 14650 clears PX4's whole 145xx band.
+  gcs_base: 14650
+  port_stride: 10           # matches ArduPilot's "-I N adds 10*N to all ports"
+  fdm_addr: 127.0.0.1
+  lock_step: true
+  wipe_eeprom: true
+  start_stagger_s: 3.0      # keep sim_vehicle.py instances from racing through startup
+  extra_out: []             # extra MAVProxy outputs, "{host}:{port}" or a python format with {index}
+  mavproxy: auto            # auto = only where the supervisor gives it a console (tmux)
+  mavproxy_args: ""
+  ready_timeout_s: 90.0
+  ardupilot_root: ~/ardupilot
+  build_dir: build/sitl/bin  # where waf puts the SITL binaries
+
+capabilities:
+  protocols: [mavlink2]
+  ros2_native: false
+  offboard: [mavlink_guided, mavlink_auto]
+  sim_time: lockstep

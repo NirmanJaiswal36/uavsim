@@ -1,0 +1,40 @@
+# ArduPlane parameters for the Zephyr flying wing.
+#
+# uavsim starts SITL with '--model JSON', and the SITL binary resolves its
+# per-frame default parameters from the --model value, not from the -f frame
+# name. That means ArduPilot's own default_params/gazebo-zephyr.parm is never
+# applied, so the elevon mixing has to be set here or the wing will not fly.
+# Values follow ArduPilot's gazebo-zephyr defaults.
+
+# Elevons: SERVO1/2 are the left/right flaps in models/zephyr.
+SERVO1_FUNCTION  77
+SERVO2_FUNCTION  78
+SERVO1_REVERSED  1
+SERVO2_REVERSED  1
+
+# Throttle on channel 3, matching <control channel="2"> in the airframe binding.
+SERVO3_FUNCTION  70
+SERVO3_MIN       1100
+SERVO3_MAX       1900
+
+# Small INS offsets so the INS is recognised as calibrated.
+INS_ACCOFFS_X    0.001
+INS_ACCOFFS_Y    0.001
+INS_ACCOFFS_Z    0.001
+INS_ACCSCAL_X    1.001
+INS_ACCSCAL_Y    1.001
+INS_ACCSCAL_Z    1.001
+INS_ACC2OFFS_X   0.001
+INS_ACC2OFFS_Y   0.001
+INS_ACC2OFFS_Z   0.001
+INS_ACC2SCAL_X   1.001
+INS_ACC2SCAL_Y   1.001
+INS_ACC2SCAL_Z   1.001
+INS_GYR_CAL      0
+
+# No airspeed sensor on this model; battery is simulated.
+ARSPD_TYPE       0
+BATT_MONITOR     4
+
+# Runway take-off: hold the runway heading and climb to 40 m.
+TKOFF_ALT        40

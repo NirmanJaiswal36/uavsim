@@ -1,0 +1,11 @@
+id: ardupilot_zephyr
+description: >-
+  ArduPlane Zephyr flying wing. KNOWN LIMITATION: spawns, connects and arms, but does
+  not currently achieve take-off -- see docs/known-issues.md.
+airframe: zephyr
+backend: ardupilot
+
+backend_config:
+  # SITL reads its frame defaults from --model, and uavsim always passes
+  # '--model JSON', so the elevon mixing has to be supplied explicitly.
+  param_files: [config/gazebo-zephyr.parm]

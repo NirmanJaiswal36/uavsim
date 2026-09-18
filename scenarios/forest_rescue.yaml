@@ -1,0 +1,38 @@
+# The reference scenario: a swarm launches from a ground control station 500 m
+# west of a burning forest and flies in to search it.
+#
+# Change the fleet block and re-run 'uavsim up' -- nothing else needs editing.
+# 'uavsim list vehicles' shows what else you can put there.
+
+name: forest_rescue
+
+world:
+  name: rescue
+  roi: roi_forest              # the forest search area, centred on the world origin
+  gcs_pose: [-500, 0, 0, 0, 0, 0]
+
+targets:
+  fires: false
+  casualties:
+    count: 0
+    # seed: 7                    # same seed, same layout, every run
+
+fleet:
+  - type: ardupilot_iris_gimbal
+    count: 4
+  - type: px4_x500
+    count: 2
+
+spawn:
+  spacing_m: 6                 # between landing pads; must clear 2x the biggest footprint
+
+ros2:
+  bridge: true
+  clock: true
+
+supervisor: tmux               # or 'subprocess' for headless/CI runs
+
+gazebo:
+  headless: false
+  verbosity: 3
+  start: true                  # false to attach to a server you started yourself

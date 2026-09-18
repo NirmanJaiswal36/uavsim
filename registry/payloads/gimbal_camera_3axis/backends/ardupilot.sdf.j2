@@ -1,0 +1,40 @@
+{# ArduPilot <control> blocks for the gimbal, injected into ArduPilotPlugin.
+   Channels 8/9/10 are RC 6/7/8 (roll/pitch/yaw); the plugin publishes the same
+   per-instance topics the JointPositionControllers subscribe to. #}
+{% if payload.params.rc_control %}
+      <!-- {{ payload.id }}: roll range is -30 to +30 deg -->
+      <control channel="8">
+        <jointName>{{ payload.id }}::roll_joint</jointName>
+        <multiplier>1.047197551196</multiplier>
+        <offset>-0.5</offset>
+        <servo_min>1100</servo_min>
+        <servo_max>1900</servo_max>
+        <type>COMMAND</type>
+        <cmd_topic>/{{ name }}/{{ payload.id }}/cmd_roll</cmd_topic>
+        <p_gain>{{ payload.params.p_gain }}</p_gain>
+      </control>
+
+      <!-- {{ payload.id }}: pitch range is -135 to +45 deg -->
+      <control channel="9">
+        <jointName>{{ payload.id }}::pitch_joint</jointName>
+        <multiplier>-3.14159265</multiplier>
+        <offset>-0.75</offset>
+        <servo_min>1100</servo_min>
+        <servo_max>1900</servo_max>
+        <type>COMMAND</type>
+        <cmd_topic>/{{ name }}/{{ payload.id }}/cmd_pitch</cmd_topic>
+        <p_gain>{{ payload.params.p_gain }}</p_gain>
+      </control>
+
+      <!-- {{ payload.id }}: yaw range is -160 to +160 deg -->
+      <control channel="10">
+        <jointName>{{ payload.id }}::yaw_joint</jointName>
+        <multiplier>-5.5850536</multiplier>
+        <offset>-0.5</offset>
+        <servo_min>1100</servo_min>
+        <servo_max>1900</servo_max>
+        <type>COMMAND</type>
+        <cmd_topic>/{{ name }}/{{ payload.id }}/cmd_yaw</cmd_topic>
+        <p_gain>{{ payload.params.p_gain }}</p_gain>
+      </control>
+{% endif %}

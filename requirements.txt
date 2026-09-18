@@ -1,0 +1,10 @@
+# Python dependencies for uavsim.
+#
+# The Gazebo transport bindings (gz.transport13 / gz.msgs10) are NOT on PyPI --
+# they come from the Gazebo apt packages (python3-gz-transport13,
+# python3-gz-msgs10) and are only needed for `uavsim up` / `uavsim spawn`.
+
+PyYAML>=5.4
+Jinja2>=3.0
+jsonschema>=3.2
+pymavlink>=2.4      # autopilot readiness and `uavsim verify --live`

@@ -1,0 +1,7 @@
+{# PX4 binding: PX4's own model already carries the actuator plugins, and PX4's
+   gz_bridge derives every topic from the model name, so merging it under our
+   instance name is all the glue that is needed. Payload fragments are appended
+   by the renderer. #}
+    <include merge="true">
+      <uri>model://{{ vars.px4_model }}</uri>
+    </include>

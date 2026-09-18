@@ -1,0 +1,26 @@
+id: standard_vtol
+description: PX4 standard VTOL (quad lift + pusher). Takes off vertically from a pad.
+class: vtol
+launch: pad
+
+model_uri: model://standard_vtol
+base_link: base_link
+imu_sensor: base_link::imu_sensor
+
+geometry:
+  footprint_radius_m: 1.1
+  spawn_z_m: 0.25
+
+performance:
+  mass_kg: 5.0
+  cruise_mps: 20.0
+  max_mps: 30.0
+  endurance_min: 45.0
+  max_payload_kg: 1.0
+
+bindings:
+  px4:
+    overlay: bindings/px4.sdf.j2
+    vars:
+      px4_model: standard_vtol
+      sys_autostart: 4004

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Convenience wrapper: uavsim from anywhere, with sim_vehicle.py on PATH.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ARDUPILOT_AUTOTEST="${ARDUPILOT_ROOT:-$HOME/ardupilot}/Tools/autotest"
+if [[ -d "$ARDUPILOT_AUTOTEST" && ":$PATH:" != *":$ARDUPILOT_AUTOTEST:"* ]]; then
+  PATH="$PATH:$ARDUPILOT_AUTOTEST"
+fi
+export PATH
+exec python3 "$HERE/uavsim/cli.py" "$@"

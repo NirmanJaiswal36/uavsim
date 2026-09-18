@@ -1,0 +1,4 @@
+id: px4_rc_cessna
+description: PX4 RC Cessna fixed-wing. Needs a runway slot at the GCS.
+airframe: rc_cessna
+backend: px4

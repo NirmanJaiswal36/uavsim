@@ -1,0 +1,29 @@
+{# 3-axis gimbal payload.
+   The nested model is named after the payload id, so every joint, topic and
+   sensor path below is unique per vehicle instance without editing any asset. #}
+    <include>
+      <uri>model://gimbal_small_3d</uri>
+      <name>{{ payload.id }}</name>
+      <pose{% if mount.degrees %} degrees="true"{% endif %}>{{ mount.pose | join(' ') }}</pose>
+    </include>
+
+    <joint name="{{ payload.id }}_joint" type="revolute">
+      <parent>{{ mount.parent }}</parent>
+      <child>{{ payload.id }}::base_link</child>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <xyz>0 0 1</xyz>
+      </axis>
+    </joint>
+
+{% for axis in ['roll', 'pitch', 'yaw'] %}
+    <plugin filename="gz-sim-joint-position-controller-system"
+      name="gz::sim::systems::JointPositionController">
+      <joint_name>{{ payload.id }}::{{ axis }}_joint</joint_name>
+      <topic>/{{ name }}/{{ payload.id }}/cmd_{{ axis }}</topic>
+      <p_gain>{{ payload.params.p_gain }}</p_gain>
+    </plugin>
+{% endfor %}

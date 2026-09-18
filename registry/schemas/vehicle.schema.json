@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "vehicle",
+  "type": "object",
+  "required": ["id", "airframe", "backend"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "description": {"type": "string"},
+    "airframe": {"type": "string"},
+    "backend": {"type": "string"},
+    "payloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "string"},
+          "id": {"type": "string"},
+          "mount": {"type": "string"},
+          "params": {"type": "object"}
+        }
+      }
+    },
+    "backend_config": {"type": "object", "description": "passed verbatim to the backend adapter"},
+    "binding_vars": {"type": "object", "description": "overrides for the airframe binding template"}
+  }
+}

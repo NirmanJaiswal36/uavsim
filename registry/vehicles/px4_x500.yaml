@@ -1,0 +1,4 @@
+id: px4_x500
+description: PX4 Holybro X500 quadrotor (ROS 2 native via uXRCE-DDS).
+airframe: x500
+backend: px4

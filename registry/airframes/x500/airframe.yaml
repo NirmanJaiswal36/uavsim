@@ -1,0 +1,31 @@
+id: x500
+description: Holybro X500 quadrotor, PX4 reference airframe (models come from the PX4 tree).
+class: multirotor
+launch: pad
+
+model_uri: model://x500_base
+base_link: base_link
+imu_sensor: base_link::imu_sensor
+
+geometry:
+  footprint_radius_m: 0.45
+  spawn_z_m: 0.18
+
+performance:
+  mass_kg: 2.0
+  cruise_mps: 12.0
+  max_mps: 20.0
+  endurance_min: 20.0
+  max_payload_kg: 0.5
+
+bindings:
+  px4:
+    overlay: bindings/px4.sdf.j2
+    vars:
+      px4_model: x500          # overridden per vehicle type (x500_depth, x500_mono_cam, ...)
+      sys_autostart: 4001
+  static:
+    overlay: bindings/static.sdf.j2
+    vars:
+      px4_model: x500
+

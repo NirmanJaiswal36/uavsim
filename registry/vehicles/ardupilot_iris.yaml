@@ -1,0 +1,4 @@
+id: ardupilot_iris
+description: Plain ArduCopter Iris, no payload. Cheapest vehicle to add when only flight matters.
+airframe: iris
+backend: ardupilot

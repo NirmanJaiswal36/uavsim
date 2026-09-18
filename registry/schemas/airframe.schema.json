@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "airframe",
+  "type": "object",
+  "required": ["id", "class", "launch"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "description": {"type": "string"},
+    "class": {"enum": ["multirotor", "fixed_wing", "vtol", "helicopter"]},
+    "launch": {"enum": ["pad", "runway"]},
+    "model_uri": {"type": "string", "description": "SDF uri of the PHYSICAL model, included by every binding"},
+    "base_link": {"type": "string"},
+    "imu_sensor": {"type": "string"},
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "footprint_radius_m": {"type": "number", "exclusiveMinimum": 0},
+        "spawn_z_m": {"type": "number"}
+      },
+      "required": ["footprint_radius_m", "spawn_z_m"]
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mass_kg": {"type": "number"},
+        "cruise_mps": {"type": "number"},
+        "max_mps": {"type": "number"},
+        "endurance_min": {"type": "number"},
+        "max_payload_kg": {"type": "number"}
+      }
+    },
+    "mounts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parent", "pose"],
+        "properties": {
+          "parent": {"type": "string"},
+          "pose": {"type": "array", "items": {"type": "number"}, "minItems": 6, "maxItems": 6},
+          "degrees": {"type": "boolean"}
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "overlay": {"type": "string", "description": "Jinja template rendered into the instance model"},
+          "model_uri": {"type": "string", "description": "ready-made model used as-is instead of an overlay"},
+          "vars": {"type": "object"}
+        }
+      }
+    }
+  }
+}

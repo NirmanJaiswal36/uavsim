@@ -1,0 +1,12 @@
+id: ardupilot_iris_gimbal
+description: ArduCopter Iris with a 3-axis gimbal camera. The workhorse of the forest search mission.
+airframe: iris
+backend: ardupilot
+
+payloads:
+  - type: gimbal_camera_3axis
+    id: gimbal_cam
+    mount: belly
+
+backend_config:
+  param_files: [config/gazebo-iris-gimbal.parm]

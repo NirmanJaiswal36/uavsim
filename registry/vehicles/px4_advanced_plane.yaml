@@ -1,0 +1,4 @@
+id: px4_advanced_plane
+description: PX4 advanced fixed-wing. Needs a runway slot at the GCS.
+airframe: advanced_plane
+backend: px4

@@ -1,0 +1,26 @@
+id: rc_cessna
+description: PX4 RC Cessna fixed-wing. Rolls for take-off.
+class: fixed_wing
+launch: runway
+
+model_uri: model://rc_cessna
+base_link: base_link
+imu_sensor: base_link::imu_sensor
+
+geometry:
+  footprint_radius_m: 1.4
+  spawn_z_m: 0.2
+
+performance:
+  mass_kg: 3.0
+  cruise_mps: 18.0
+  max_mps: 30.0
+  endurance_min: 35.0
+  max_payload_kg: 0.5
+
+bindings:
+  px4:
+    overlay: bindings/px4.sdf.j2
+    vars:
+      px4_model: rc_cessna
+      sys_autostart: 4003

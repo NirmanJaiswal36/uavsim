@@ -1,0 +1,25 @@
+# Gazebo plugin build output (cmake -B build -S gz_plugins)
+build/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# colcon
+install/
+log/
+
+# runtime junk from ArduPilot / MAVProxy, if run from the repo root
+logs/
+eeprom.bin
+mav.parm
+*.tlog
+*.tlog.raw
+
+# editor / OS
+*.swp
+*~
+.DS_Store

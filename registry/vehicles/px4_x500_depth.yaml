@@ -1,0 +1,12 @@
+id: px4_x500_depth
+description: >
+  PX4 X500 carrying PX4's OAK-D Lite (RGB + depth + points).
+  The depth sensor publishes to a global topic, so only one of these per run.
+airframe: x500
+backend: px4
+binding_vars:
+  px4_model: x500_depth
+  sys_autostart: 4002
+payloads:
+  - type: px4_oakd_lite
+    id: oakd
