@@ -8,7 +8,7 @@
     generated ros_gz_bridge. Mission logic belongs to the framework under test,
     not to this package.
   </description>
-  <maintainer email="nirmanjaiswal0369@gmail.com">swadhin</maintainer>
+  <maintainer email="114364237+NirmanJaiswal36@users.noreply.github.com">Nirman Jaiswal</maintainer>
   <license>LGPL-3.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
