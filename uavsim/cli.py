@@ -70,9 +70,14 @@ def cmd_plan(args) -> int:
           f"{plan.world.info.elevation_m} m)")
     print(f"roi        {plan.world.roi.get('id')}  radius "
           f"{plan.world.roi.get('mission_radius_m')} m, "
-          f"{len(plan.world.fires)} fires, {len(plan.world.casualties)} casualties")
+          f"{len(plan.world.fires)} fires, {len(plan.world.casualties)} casualties, "
+          f"{len(plan.world.rois)} rois")
+    site = plan.world.site
+    runway_end = plan.world.site_pose.x + site.runway_x0_m + site.runway_length_m
+    open_ground = -float(plan.world.roi.get("mission_radius_m", 0.0)) - runway_end
     print(f"gcs        {plan.world.site_pose.as_list()[:2]}  "
-          f"{abs(plan.world.site_pose.x):.0f} m from the ROI")
+          f"{abs(plan.world.site_pose.x):.0f} m to the ROI centre, "
+          f"{open_ground:.0f} m of open ground from the runway end to the boundary")
     print(f"fleet      {len(plan.instances)} vehicles\n")
     print(_fleet_table(plan))
     if args.sdf:

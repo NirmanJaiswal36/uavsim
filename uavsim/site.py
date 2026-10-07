@@ -6,6 +6,28 @@ the allocation can never drift apart.
 
 Site frame (before ``gcs_pose`` is applied): +X points at the ROI, the apron is
 behind the runway threshold, the shelter sits to the south.
+
+Where ``DEFAULT_GCS_POSE`` comes from.  The site is not a point: the runway runs
+from local x = -10 to x = +110, straight at the forest, so the runway's far end is
+the forest-facing extremity of the whole GCS.  The standoff we actually care about
+is the open ground between that end and the forest's mission boundary, and we want
+200 m of it::
+
+    (-mission_radius) - (X + runway_x0 + runway_length) = 200
+    (-85)             - (X - 10 + 120)                  = 200   ->   X = -395.0
+
+which lays the site out like this (world x, forest centre at 0)::
+
+    apron rear       -450.0
+    pad rows         -444.0 .. -426.0     the multirotors spawn here
+    runway threshold -405.0
+    runway far end   -285.0
+    ................ 200 m of open ground
+    mission boundary  -85.0
+    forest centre       0.0               also the geographic origin
+
+So ``distance_to_roi_m`` in the manifest reads 395 m, not 200: it is measured from
+the site origin to the ROI centre, which is a different quantity.
 """
 
 from __future__ import annotations
@@ -58,7 +80,7 @@ class SiteLayout:
 
 
 DEFAULT_SITE = SiteLayout()
-DEFAULT_GCS_POSE = Pose(x=-500.0, y=0.0, z=0.0)
+DEFAULT_GCS_POSE = Pose(x=-395.0, y=0.0, z=0.0)   # 200 m of open ground; see above
 
 
 def compose(site_pose: Pose, local: Pose) -> Pose:

@@ -7,7 +7,7 @@ name: forest_static
 world:
   name: rescue_static
   roi: roi_forest
-  gcs_pose: [-500, 0, 0, 0, 0, 0]
+  gcs_pose: [-395, 0, 0, 0, 0, 0]
 
 targets:
   fires: false

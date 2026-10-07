@@ -215,3 +215,52 @@ def test_payload_is_reflected_in_both_sdf_and_capabilities(registry, world):
 def test_static_backend_has_no_autopilot_plugin(registry, world):
     (_, sdf), = _render(registry, world, "static_iris")
     assert "ArduPilotPlugin" not in sdf
+
+
+# -- generated marker assets ---------------------------------------------------
+
+def test_the_aruco_marker_models_are_well_formed():
+    """The plate must be static, collision-free and carry its own texture: a
+    collision here would be a second ground contact under every ROI."""
+    root = Path(__file__).resolve().parents[1]
+    for marker_id in range(8):
+        model_dir = root / "models" / f"aruco_marker_{marker_id}"
+        assert (model_dir / "model.config").is_file()
+        sdf = (model_dir / "model.sdf").read_text()
+        xml.dom.minidom.parseString(sdf)
+        assert "<static>true</static>" in sdf
+        assert "<collision" not in sdf
+        assert f"aruco_4x4_50_{marker_id}.png" in sdf
+        assert "<specular>0 0 0 1</specular>" in sdf      # a hot spot kills detection
+        assert (model_dir / "materials" / "textures"
+                / f"aruco_4x4_50_{marker_id}.png").is_file()
+
+
+def test_the_aruco_textures_match_their_generator():
+    """OpenCV is an authoring dependency, so skip rather than fail without it."""
+    import subprocess
+    pytest.importorskip("cv2")
+    root = Path(__file__).resolve().parents[1]
+    done = subprocess.run([sys.executable, "tools/gen_aruco_textures.py", "--check"],
+                          cwd=root, capture_output=True, text=True)
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_the_aruco_textures_decode_to_their_own_id():
+    """A mirrored or mis-indexed plate is invisible in the GUI but breaks every score."""
+    cv2 = pytest.importorskip("cv2")
+    root = Path(__file__).resolve().parents[1]
+    get_dict = getattr(cv2.aruco, "getPredefinedDictionary", None) \
+        or cv2.aruco.Dictionary_get
+    book = get_dict(cv2.aruco.DICT_4X4_50)
+    for marker_id in range(8):
+        path = (root / "models" / f"aruco_marker_{marker_id}" / "materials" / "textures"
+                / f"aruco_4x4_50_{marker_id}.png")
+        image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        if hasattr(cv2.aruco, "ArucoDetector"):                      # OpenCV >= 4.7
+            _, ids, _ = cv2.aruco.ArucoDetector(
+                book, cv2.aruco.DetectorParameters()).detectMarkers(image)
+        else:
+            _, ids, _ = cv2.aruco.detectMarkers(
+                image, book, parameters=cv2.aruco.DetectorParameters_create())
+        assert ids is not None and list(ids.ravel()) == [marker_id]

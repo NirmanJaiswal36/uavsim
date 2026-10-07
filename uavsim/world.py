@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,9 @@ DEFAULT_ORIGIN = {"latitude_deg": -35.389138, "longitude_deg": 149.219188, "elev
 
 EARTH_RADIUS_M = 6378137.0
 
+# The search-and-rescue sites an ROI can be. Each is a Jinja macro in rois.sdf.j2.
+DEFAULT_ROI_TYPES = ("survivor", "wreckage", "tent", "crate", "signal_fire")
+
 
 @dataclass
 class TargetSpec:
@@ -37,6 +41,14 @@ class TargetSpec:
     casualty_count: int = 0
     casualty_seed: int = 0
     casualty_positions: list[list[float]] | None = None
+    roi_count: int = 0
+    roi_seed: int = 0
+    roi_types: tuple[str, ...] = DEFAULT_ROI_TYPES
+    roi_marker_dict: str = "4x4_50"
+    roi_marker_size_m: float = 2.0
+    roi_first_marker_id: int = 0
+    roi_min_tree_m: float = 6.0          # clears an oak canopy, so the plate is visible
+    roi_positions: list[list[float]] | None = None
 
 
 @dataclass
@@ -50,6 +62,32 @@ class WorldSpec:
 
 
 @dataclass
+class RoiPlacement:
+    """One search-and-rescue region of interest: a themed prop plus its ArUco plate.
+
+    The plate sits ``MARKER_OFFSET_M`` along the prop's heading rather than under it,
+    so the prop never occludes the marker from a nadir camera.
+    """
+
+    id: int
+    type: str
+    aruco_id: int
+    x: float
+    y: float
+    yaw: float
+
+    MARKER_OFFSET_M = 3.0
+
+    @property
+    def marker_x(self) -> float:
+        return self.x + self.MARKER_OFFSET_M * math.cos(self.yaw)
+
+    @property
+    def marker_y(self) -> float:
+        return self.y + self.MARKER_OFFSET_M * math.sin(self.yaw)
+
+
+@dataclass
 class BuiltWorld:
     info: WorldInfo
     roi: dict[str, Any]
@@ -57,6 +95,8 @@ class BuiltWorld:
     casualties: list[list[float]]
     site_pose: Pose
     site: SiteLayout
+    rois: list[RoiPlacement] = field(default_factory=list)
+    targets: TargetSpec = field(default_factory=TargetSpec)
 
 
 def load_roi(roi_id: str) -> dict[str, Any]:
@@ -77,43 +117,78 @@ def enu_to_geo(x: float, y: float, origin: dict[str, float]) -> tuple[float, flo
             origin["longitude_deg"] + math.degrees(dlon))
 
 
-def place_casualties(roi: dict[str, Any], spec: TargetSpec,
-                     fires: list[list[float]] | None = None) -> list[list[float]]:
-    """Deterministic placement inside the mission radius, clear of trees and fires.
+def place_points(roi: dict[str, Any], count: int, seed: int, *,
+                 min_tree_m: float = 3.0, min_self_m: float = 8.0,
+                 avoid: Sequence[tuple[Sequence[Sequence[float]], float]] = (),
+                 explicit: list[list[float]] | None = None,
+                 attempts: int = 500, label: str = "point") -> list[list[float]]:
+    """Deterministic ``r = R*sqrt(U)`` rejection sampling inside the mission radius.
 
-    Returns ``[x, y, yaw]`` triples. Same seed, same layout, every run.
+    ``avoid`` is a sequence of ``(points, min_distance)`` pairs, so one pass can keep
+    clear of fires, casualties and already-placed ROIs without three near-copies of
+    this loop. Returns ``[x, y, yaw]`` triples; same seed, same layout, every run.
 
-    The fire markers in the legacy world were themselves drawn from
-    ``r = R*sqrt(U)`` with a small seed, so without the fire clearance below a
-    casualty can land exactly on one (seed 42 does).
+    The fire markers in the legacy world were themselves drawn from ``r = R*sqrt(U)``
+    with a small seed, so without a fire clearance a casualty can land exactly on one
+    (seed 42 does).
     """
-    if spec.casualty_positions:
-        return [[p[0], p[1], p[2] if len(p) > 2 else 0.0] for p in spec.casualty_positions]
-    if spec.casualty_count <= 0:
+    if explicit:
+        return [[p[0], p[1], p[2] if len(p) > 2 else 0.0] for p in explicit]
+    if count <= 0:
         return []
 
     radius = float(roi.get("mission_radius_m", 60.0))
     trees = [tuple(t) for t in roi.get("trees", [])]
-    rng = random.Random(spec.casualty_seed)
+    rng = random.Random(seed)
     placed: list[list[float]] = []
-    for _ in range(spec.casualty_count):
-        for _attempt in range(500):
+    for _ in range(count):
+        for _attempt in range(attempts):
             r = radius * math.sqrt(rng.random())
             theta = rng.uniform(0, 2 * math.pi)
             x, y = r * math.cos(theta), r * math.sin(theta)
-            if any(math.hypot(x - tx, y - ty) < 3.0 for tx, ty in trees):
+            if any(math.hypot(x - tx, y - ty) < min_tree_m for tx, ty in trees):
                 continue
-            if any(math.hypot(x - fx, y - fy) < 5.0 for fx, fy, *_ in (fires or [])):
+            if any(math.hypot(x - ax, y - ay) < keep_out
+                   for points, keep_out in avoid for ax, ay, *_ in points):
                 continue
-            if any(math.hypot(x - px, y - py) < 8.0 for px, py, _ in placed):
+            if any(math.hypot(x - px, y - py) < min_self_m for px, py, _ in placed):
                 continue
             placed.append([round(x, 2), round(y, 2), round(rng.uniform(0, 2 * math.pi), 3)])
             break
         else:
             raise RuntimeError(
-                f"could not place casualty {len(placed) + 1} of {spec.casualty_count} "
-                f"inside {radius} m; reduce the count")
+                f"could not place {label} {len(placed) + 1} of {count} inside "
+                f"{radius} m; reduce the count or the clearances")
     return placed
+
+
+def place_casualties(roi: dict[str, Any], spec: TargetSpec,
+                     fires: list[list[float]] | None = None) -> list[list[float]]:
+    """Casualties: inside the mission radius, 3 m from trunks, 5 m from fires, 8 m apart."""
+    return place_points(roi, spec.casualty_count, spec.casualty_seed,
+                        min_tree_m=3.0, min_self_m=8.0, avoid=[(fires or [], 5.0)],
+                        explicit=spec.casualty_positions, label="casualty")
+
+
+def place_rois(roi: dict[str, Any], spec: TargetSpec,
+               fires: list[list[float]] | None = None,
+               casualties: list[list[float]] | None = None) -> list[RoiPlacement]:
+    """Search-and-rescue sites: clear of trunks, fires, casualties and each other.
+
+    The trunk clearance is larger than a casualty's because an ROI carries an ArUco
+    plate that has to be *seen*: under a canopy it never is. Separation between ROIs
+    is larger too, so one camera frame cannot contain two markers and a detection can
+    be attributed to a single site.
+    """
+    points = place_points(roi, spec.roi_count, spec.roi_seed,
+                          min_tree_m=spec.roi_min_tree_m, min_self_m=15.0,
+                          avoid=[(fires or [], 8.0), (casualties or [], 8.0)],
+                          explicit=spec.roi_positions, attempts=2000, label="roi")
+    types = tuple(spec.roi_types) or DEFAULT_ROI_TYPES
+    return [RoiPlacement(id=i, type=types[i % len(types)],
+                         aruco_id=spec.roi_first_marker_id + i,
+                         x=point[0], y=point[1], yaw=point[2])
+            for i, point in enumerate(points)]
 
 
 def _env() -> jinja2.Environment:
@@ -140,6 +215,11 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         targets_sdf = env.get_template("targets.sdf.j2").render(
             fires=fires, casualties=casualties, fire_lights=spec.targets.fire_lights)
 
+    rois = place_rois(roi, spec.targets, fires, casualties) if roi else []
+    rois_sdf = env.get_template("rois.sdf.j2").render(
+        rois=rois, marker_size_m=spec.targets.roi_marker_size_m,
+        marker_dict=spec.targets.roi_marker_dict) if rois else ""
+
     world_sdf = env.get_template("base_world.sdf.j2").render(
         world_name=spec.name,
         origin=spec.origin,
@@ -147,6 +227,7 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         roi_fragment=f"{spec.roi}.sdf" if spec.roi else None,
         gcs_site=gcs_sdf,
         targets=targets_sdf,
+        rois=rois_sdf,
         terrain=terrain_patch(spec.gcs_pose, roi),
         camera_pose=_camera_pose(spec),
     )
@@ -164,7 +245,8 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         plugin_paths=list(plugin_paths or []),
     )
     return BuiltWorld(info=info, roi=roi, fires=fires, casualties=casualties,
-                      site_pose=spec.gcs_pose, site=spec.site)
+                      site_pose=spec.gcs_pose, site=spec.site, rois=rois,
+                      targets=spec.targets)
 
 
 def terrain_patch(gcs: Pose, roi: dict[str, Any], *, margin_m: float = 150.0,
@@ -181,8 +263,10 @@ def terrain_patch(gcs: Pose, roi: dict[str, Any], *, margin_m: float = 150.0,
     y0, y1 = gcs.y - margin_m, gcs.y + margin_m
     if gcs.x < xmin:
         x1 = xmin - clearance_m
-    elif gcs.x > xmax:
-        x0 = xmax + clearance_m
+        y0, y1 = min(y0, ymin), max(y1, ymax)   # x already separates us; widen so the
+    elif gcs.x > xmax:                          # corridor meets the ROI without bare
+        x0 = xmax + clearance_m                 # wedges at the corners
+        y0, y1 = min(y0, ymin), max(y1, ymax)
     elif gcs.y < ymin:
         y1 = ymin - clearance_m
     elif gcs.y > ymax:

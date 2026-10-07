@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from .adapter import Instance
-from .world import BuiltWorld, enu_to_geo
+from .world import BuiltWorld, RoiPlacement, enu_to_geo
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2 added targets.rois
 
 
 def build(world: BuiltWorld, instances: list[Instance],
@@ -57,6 +57,7 @@ def build(world: BuiltWorld, instances: list[Instance],
         "targets": {
             "fires": [_target(f[0], f[1], origin) for f in world.fires],
             "casualties": [_target(c[0], c[1], origin) for c in world.casualties],
+            "rois": [_roi(r, origin, world.targets) for r in world.rois],
         },
         "vehicles": [_vehicle(inst, world, endpoints.get(inst.name, {})) for inst in instances],
         "ros2": {
@@ -70,6 +71,35 @@ def build(world: BuiltWorld, instances: list[Instance],
 def _target(x: float, y: float, origin: dict[str, float]) -> dict[str, Any]:
     lat, lon = enu_to_geo(x, y, origin)
     return {"enu": [x, y], "geo": [round(lat, 8), round(lon, 8)]}
+
+
+def _roi(roi: RoiPlacement, origin: dict[str, float], spec: Any) -> dict[str, Any]:
+    """One ROI and the marker that identifies it, in ENU and WGS84.
+
+    ``aruco_id`` is reported separately from ``index`` on purpose: a detector reports
+    the marker it read, not the ROI it belongs to, and ``first_marker_id`` lets two
+    scenarios in the same world use disjoint marker sets. The mapping has to be
+    explicit or a scoring script has to guess it.
+    """
+    lat, lon = enu_to_geo(roi.x, roi.y, origin)
+    marker_lat, marker_lon = enu_to_geo(roi.marker_x, roi.marker_y, origin)
+    return {
+        "id": f"roi_{roi.id}",
+        "index": roi.id,
+        "type": roi.type,
+        "enu": [roi.x, roi.y],
+        "yaw_rad": roi.yaw,
+        "geo": [round(lat, 8), round(lon, 8)],
+        "marker": {
+            "dictionary": spec.roi_marker_dict,
+            "aruco_id": roi.aruco_id,
+            "size_m": spec.roi_marker_size_m,
+            "model": f"aruco_marker_{roi.aruco_id}",
+            "enu": [round(roi.marker_x, 2), round(roi.marker_y, 2)],
+            "geo": [round(marker_lat, 8), round(marker_lon, 8)],
+            "normal": "+Z (horizontal, faces a nadir camera)",
+        },
+    }
 
 
 def _vehicle(inst: Instance, world: BuiltWorld, endpoints: dict[str, Any]) -> dict[str, Any]:

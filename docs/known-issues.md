@@ -67,6 +67,84 @@ camera topics publish at about 3 Hz rather than their nominal rate. Under lock-s
 ArduPilot follows simulation time, so flight behaviour stays correct — it just takes
 longer in wall-clock terms. Expect this to get worse with more vehicles and more cameras.
 
+The doubled forest makes it worse again: 200 Fuel trees are textured meshes *with*
+collision, and shadow casting over them is the single biggest renderer cost. The 8 ROI
+props are primitives and cost comparatively little. If you need a faster world for
+development or CI, regenerate a smaller one rather than deleting entities by hand:
+
+```bash
+python3 tools/gen_roi_forest.py --scenery-radius 105 --oak 60 --pine 40 --fires 20
+```
+
+(and remember that `uavsim/site.py` derives the GCS standoff from the mission radius, so
+changing `--mission-radius` means changing `DEFAULT_GCS_POSE` too).
+
+## The first run now downloads 200 trees
+
+Doubling the forest doubled the Fuel fetch. Gazebo gives no progress indication while it
+happens, and `Spawner.wait_for_world()` can expire *before* the world has finished
+loading — which surfaces as a misleading "world never came up". Warm the cache once, with
+network, before timing or scripting anything:
+
+```bash
+./bin/uavsim up scenarios/forest_static.yaml      # then uavsim down
+```
+
+## ArUco markers are not detectable much above 20 m
+
+The plate is 2 m and the gimbal camera is 640×480 with a 2.0 rad horizontal FOV, so the
+marker is this many pixels per module (a 4×4 marker is 6 modules across including its
+black border, and OpenCV needs roughly 3):
+
+| altitude | GSD | plate | px per module |
+|---|---|---|---|
+| 10 m | 4.9 cm | 41 px | 6.9 |
+| 15 m | 7.3 cm | 27 px | 4.6 |
+| 20 m | 9.7 cm | 21 px | 3.4 — marginal |
+| 25 m | 12.2 cm | 16 px | 2.7 — below the floor |
+
+So survey at **15 m**. The example controllers cruise in per-vehicle layers 3 m apart and
+descend to `--observe-alt` on station for exactly this reason; above 25 m you need
+`CameraZoomPlugin` (`max_zoom 125`) or a bigger plate (`targets.rois.marker_size_m`).
+
+Separately, at ~3 Hz effective camera rate and 0.3 RTF a drone at 5 m/s covers ~1.7 m per
+frame, so detection from a *moving* vehicle is intermittent. Hold station (`--dwell`).
+
+## `RTL` flies into the forest, not back to the pad
+
+By design, not a bug. Every ArduPilot SITL is started with `-l <world origin>`
+(`uavsim/adapter.py`) because `ArduPilotPlugin` reports `WorldPose` — NED relative to the
+Gazebo world origin — and a per-vehicle home would double-count the spawn offset and put
+the EKF tens of metres out. That origin is the **centre of the ROI**.
+
+So home and `LOCAL_POSITION_NED` (0, 0) are in the trees, a vehicle on the apron reports
+itself ~426 m from its own home, and `RTL` does exactly what it says. Land in place, or
+fly an explicit leg back to `spawn.geo` from the manifest. Both example controllers do
+the latter under `--rtl`.
+
+## MAVROS and the pymavlink example cannot share `14650+10i`
+
+`endpoints.mavlink` is a single UDP socket, so whichever process binds it first wins and
+the other gets silence rather than an error. Give MAVROS its own output:
+
+```yaml
+backends:
+  ardupilot:
+    extra_out: ["127.0.0.1:1475{index}"]
+```
+
+`scenarios/forest_rescue.yaml` already does. Note that `extra_out` only exists when
+MAVProxy does (`supervisor: tmux`); a headless run falls back to SITL's own TCP port,
+which is also one client at a time.
+
+## `examples/swarm/*` skips PX4 vehicles
+
+Both reference controllers warn and fly only the ArduPilot half of the fleet. PX4
+offboard needs an `OFFBOARD_CONTROL_MODE` plus setpoint stream above 2 Hz *before* the
+mode switch is accepted, uses different arming and mode semantics, and in this repo is
+meant to be driven over DDS — see `endpoints.ros2_topics` and `endpoints.dds_namespace`
+in the manifest (`<vehicle>/fmu/in/trajectory_setpoint`).
+
 ## Things that behave correctly but surprise people
 
 These are not bugs, but they cost time the first time:
@@ -80,4 +158,5 @@ These are not bugs, but they cost time the first time:
   check for stale processes first — `uavsim down --gazebo`, then `uavsim verify --live`.
 - **Exactly one `<plane>` collision per world.** A second one makes the ground-contact
   LCP singular in DART and freezes the physics step, with no error message.
-- **The first run needs network access** to fetch tree models from Gazebo Fuel.
+- **The first run needs network access** to fetch 200 tree models from Gazebo Fuel,
+  and it is slow. See above.

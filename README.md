@@ -1,13 +1,19 @@
 # uavsim
 
 A ready-made Gazebo environment for testing UAV autonomy: a ground control station
-500 m west of a forest search area, and a fleet of whatever aircraft you ask for —
-ArduPilot and PX4 in the same world, spawned at runtime from a one-file scenario,
-with autopilots, cameras, a ROS 2 bridge and a machine-readable manifest.
+395 m west of a forest search area — 200 m of open ground between the runway end and
+the tree line — and a fleet of whatever aircraft you ask for. ArduPilot and PX4 in the
+same world, spawned at runtime from a one-file scenario, with autopilots, cameras, a
+ROS 2 bridge and a machine-readable manifest.
 
-**There is no mission logic here on purpose.** No search patterns, no arming sequences,
-no planner. This is the environment your framework gets tested *in* — it hands you
-vehicles, sensors and ground truth, and stays out of the way.
+**There is no mission logic in the environment.** No search patterns, no arming
+sequences, no planner inside `uavsim/`. This is what your framework gets tested *in* —
+it hands you vehicles, sensors and ground truth, and stays out of the way.
+
+[`examples/swarm/`](examples/swarm/) ships two **reference clients** that show how to
+consume the manifest: one pymavlink, one MAVROS. They are examples, not part of the
+environment — nothing in `uavsim/` imports them, and deleting the directory changes
+nothing.
 
 Built for the MeitY Grand Challenge, useful for any multi-UAV work.
 
@@ -21,14 +27,20 @@ Built for the MeitY Grand Challenge, useful for any multi-UAV work.
 
 - **A ground control station** — 24 landing pads, a 120 m runway pointing at the forest,
   a shelter, a mast and a windsock. Vehicles spawn here, not in the trees.
-- **A forest region of interest** — ~100 trees, grass and a 60 m boundary ring at the
-  world origin. The world's geographic origin *is* the ROI centre.
+- **A forest region of interest** — ~200 trees, grass and an 85 m boundary ring at the
+  world origin (about 2.3 ha of mission area). The world's geographic origin *is* the
+  ROI centre. The scenery is generated: see [`tools/gen_roi_forest.py`](tools/gen_roi_forest.py).
+- **8 regions of interest** — themed search-and-rescue sites (survivor, wreckage, tent,
+  supply crate, signal fire), each paired with a 2 m **ArUco 4x4_50** plate so detection
+  is deterministic and scoreable. Placed from a seed, clear of trunks, and reported in
+  the manifest with ENU, WGS84 and marker id.
 - **Optional targets** — fire markers and casualties, placed deterministically from a
   seed so the same seed gives the same layout every run.
 - **A fleet you choose** — edit one `fleet:` block. Ports, MAVLink system IDs, gz topics
   and ROS 2 namespaces are all assigned for you.
 - **A manifest** — every vehicle's capabilities, endpoints and spawn position, plus the
-  ground-truth position of every target, in both ENU and WGS84.
+  ground-truth position of every target and every ArUco marker (`targets.rois[].marker`),
+  in both ENU and WGS84.
 
 ## Requirements
 
@@ -100,10 +112,15 @@ takeoff 30
 rc 7 1200          # gimbal pitch (RC 6/7/8 = gimbal roll/pitch/yaw)
 ```
 
-The reference scenario puts 4 gimbal-carrying Iris and 2 PX4 X500 on the pads.
-Trees are fetched from [Gazebo Fuel](https://app.gazebosim.org/fuel) the first time you
-load a world and cached in `~/.gz/fuel` — **the first run on a fresh machine needs
-network access**, after which it works offline.
+The reference scenario puts 4 gimbal-carrying Iris and 2 PX4 X500 on the pads, and 8
+ArUco-marked search-and-rescue sites in the forest.
+
+200 trees are fetched from [Gazebo Fuel](https://app.gazebosim.org/fuel) the first time
+you load a world and cached in `~/.gz/fuel` — **the first run on a fresh machine needs
+network access and takes several minutes**, after which it works offline. Nothing else
+in the world is a Fuel model: the GCS, the grass, the targets and the ROI props are all
+local or inline, so only the trees cost you a download. Warm the cache once with
+`./bin/uavsim up scenarios/forest_static.yaml` before timing anything.
 
 ## Choosing a fleet
 
@@ -148,15 +165,26 @@ Known limitations are listed in [`docs/known-issues.md`](docs/known-issues.md).
 
 ### Targets
 
-Both shipped scenarios have targets switched **off**. To place them:
+`forest_rescue.yaml` ships **8 ROIs on** and fires off; the other two scenarios ship
+everything off. To change that:
 
 ```yaml
 targets:
   fires: true
   casualties: {count: 5, seed: 7}
+  rois:
+    count: 8                  # survivor / wreckage / tent / crate / signal fire
+    seed: 17                  # same seed, same layout, every run
+    # types: [survivor, wreckage]     # restrict the cycle
+    # marker_size_m: 2.0              # plate side; 2 m resolves at 15 m altitude
+    # first_marker_id: 0              # ArUco ids are first_marker_id + index
+    # min_tree_m: 6.0                 # trunk clearance, so the plate is visible
 ```
 
-Positions land in the manifest as ground truth, clear of trunks and of each other.
+Positions land in the manifest as ground truth, clear of trunks and of each other. Each
+ROI is a themed prop plus an ArUco 4x4_50 plate 3 m along the prop's heading, so the
+prop never occludes the marker from a nadir camera. The count is capped at 8 because
+eight marker models ship — see [`docs/extending.md`](docs/extending.md) to add more.
 
 ## Scenarios
 
@@ -192,9 +220,18 @@ Each run writes to `$UAVSIM_RUN_DIR/<world>/` (default `/tmp/uavsim/<world>/`):
 
 ```jsonc
 {
-  "roi":  {"centre_geo": [-35.389138, 149.219188], "mission_radius_m": 60.0},
-  "gcs":  {"pose_enu": [-500, 0, 0, 0, 0, 0], "geo": [...], "distance_to_roi_m": 500.0},
-  "targets": {"fires": [{"enu": [...], "geo": [...]}], "casualties": [...]},
+  "schema_version": 2,
+  "roi":  {"centre_geo": [-35.389138, 149.219188], "mission_radius_m": 85.0},
+  "gcs":  {"pose_enu": [-395, 0, 0, 0, 0, 0], "geo": [...], "distance_to_roi_m": 395.0},
+  "targets": {
+    "fires": [{"enu": [...], "geo": [...]}], "casualties": [...],
+    "rois": [{
+      "id": "roi_0", "index": 0, "type": "survivor",
+      "enu": [21.41, -57.56], "geo": [...], "yaw_rad": 6.035,
+      "marker": {"dictionary": "4x4_50", "aruco_id": 0, "size_m": 2.0,
+                 "model": "aruco_marker_0", "enu": [24.32, -58.3], "geo": [...]}
+    }]
+  },
   "vehicles": [{
     "name": "ardupilot_iris_gimbal_0", "sysid": 1,
     "spawn": {"enu": [...], "geo": [...]},
@@ -230,15 +267,67 @@ ros2 launch uavsim_bringup sim.launch.py scenario:=forest_rescue
 `UAVSIM_ROOT` is only needed when the launch file cannot find the checkout by walking up
 from its own location, which is the case once colcon has installed it.
 
+`sim.launch.py` adds the `ros_gz_bridge` and nothing else. To get MAVROS, start it
+separately against a simulation that is already up:
+
+```bash
+ros2 launch uavsim_bringup mavros.launch.py world:=rescue
+```
+
+It reads the run manifest, so it follows the fleet rather than a hardcoded port table.
+
+## Flying the fleet
+
+[`examples/swarm/`](examples/swarm/) has two reference clients — `pymavlink_swarm.py`
+and `mavros_swarm.py` — that arm the fleet, take off, split the 8 ROIs across the
+ArduPilot vehicles, fly each drone to its assigned markers and land.
+
+```bash
+./bin/uavsim up scenarios/forest_rescue.yaml
+python3 examples/swarm/pymavlink_swarm.py --world rescue --dry-run   # just the plan
+python3 examples/swarm/pymavlink_swarm.py --world rescue
+```
+
+Three things to know before you debug anything:
+
+- **Home is the centre of the forest, not the pad.** Every ArduPilot SITL is started
+  with `-l <world origin>` because `ArduPilotPlugin` reports `WorldPose`, NED relative
+  to the Gazebo world origin — and that origin is the ROI centre. So
+  `LOCAL_POSITION_NED` (0, 0) is in the trees, a vehicle on the apron reports itself
+  ~426 m from its own home, and **bare `RTL` flies into the forest.** The examples land
+  in place, or fly an explicit return leg with `--rtl`.
+- **MAVROS cannot share the pymavlink port.** `endpoints.mavlink` is a single UDP socket.
+  `forest_rescue.yaml` therefore requests `backends.ardupilot.extra_out:
+  ["127.0.0.1:1475{index}"]`, giving MAVROS 14750–14753 — clear of PX4's 14540–14599.
+- **The markers only read from low altitude.** The 2 m plate spans 27 px at 15 m on the
+  640×480 gimbal camera and falls below the detector's floor by 25 m, so each leg
+  descends to `--observe-alt` and holds for `--dwell` seconds.
+
+To confirm a marker is machine-readable rather than merely visible:
+
+```bash
+ros2 run image_view image_saver --ros-args \
+  -r image:=/ardupilot_iris_gimbal_0/gimbal_cam/image_raw
+python3 -c "
+import cv2
+img = cv2.imread('left0000.jpg')
+book = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+print(cv2.aruco.ArucoDetector(book, cv2.aruco.DetectorParameters()).detectMarkers(img)[1])"
+```
+
+PX4 vehicles are skipped with a warning: PX4 offboard needs a setpoint stream above
+2 Hz before the mode switch is accepted, and is meant to be driven over DDS here.
+
 ## Tests
 
 ```bash
 python3 -m pytest tests/ -q
 ```
 
-37 tests covering registry validation, capability merging, allocation invariants, SDF
-rendering, world building, casualty placement, bridge generation and manifest content.
-They need no Gazebo and no SITL, and run in under a second.
+67 tests covering registry validation, capability merging, allocation invariants, SDF
+rendering, world building, casualty and ROI placement, the generated forest and marker
+assets, bridge generation, manifest content and the example clients' ROI assignment.
+They need no Gazebo and no SITL, and run in under two seconds.
 
 ## Things that will bite you
 
@@ -254,7 +343,9 @@ They need no Gazebo and no SITL, and run in under a second.
   infinite half-space in DART; a second one makes the ground-contact LCP singular and
   freezes the physics step. The apron, runway and grass patches are boxes or visual-only
   for this reason, and both `verify` and the test suite enforce the rule.
-- **The first run needs network** to fetch trees from Gazebo Fuel.
+- **The first run needs network** to fetch 200 trees from Gazebo Fuel, and can take
+  several minutes with no progress indication. Warm the cache with
+  `./bin/uavsim up scenarios/forest_static.yaml` first.
 - **Expect a low real-time factor** with many vehicles and cameras. Under lock-step
   ArduPilot follows simulation time, so flight behaviour stays correct — it just runs
   slower than wall clock.

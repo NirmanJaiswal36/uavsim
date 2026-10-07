@@ -12,7 +12,7 @@ from .adapter import Pose
 from .allocator import FleetRequest
 from .registry import PKG_ROOT, Registry
 from .site import DEFAULT_GCS_POSE, DEFAULT_SITE, SiteLayout
-from .world import DEFAULT_ORIGIN, TargetSpec, WorldSpec
+from .world import DEFAULT_ORIGIN, DEFAULT_ROI_TYPES, TargetSpec, WorldSpec
 
 SCENARIOS_DIR = PKG_ROOT / "scenarios"
 
@@ -58,11 +58,20 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
 
     targets_data = data.get("targets") or {}
     casualties = targets_data.get("casualties") or {}
+    rois = targets_data.get("rois") or {}
     targets = TargetSpec(
         fires=targets_data.get("fires", True),
         casualty_count=int(casualties.get("count", 0)),
         casualty_seed=int(casualties.get("seed", 0)),
         casualty_positions=casualties.get("positions"),
+        roi_count=int(rois.get("count", 0)),
+        roi_seed=int(rois.get("seed", 0)),
+        roi_types=tuple(rois.get("types") or DEFAULT_ROI_TYPES),
+        roi_marker_dict=rois.get("marker_dict", "4x4_50"),
+        roi_marker_size_m=float(rois.get("marker_size_m", 2.0)),
+        roi_first_marker_id=int(rois.get("first_marker_id", 0)),
+        roi_min_tree_m=float(rois.get("min_tree_m", 6.0)),
+        roi_positions=rois.get("positions"),
     )
 
     world = WorldSpec(

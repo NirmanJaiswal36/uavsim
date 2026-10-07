@@ -41,6 +41,27 @@
               "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 3}
             }
           }
+        },
+        "rois": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": {"type": "integer", "minimum": 0, "maximum": 8,
+                      "description": "capped at the number of aruco_marker_* models that ship"},
+            "seed": {"type": "integer"},
+            "types": {
+              "type": "array",
+              "items": {"enum": ["survivor", "wreckage", "tent", "crate", "signal_fire"]}
+            },
+            "marker_dict": {"enum": ["4x4_50"]},
+            "marker_size_m": {"type": "number", "exclusiveMinimum": 0},
+            "first_marker_id": {"type": "integer", "minimum": 0},
+            "min_tree_m": {"type": "number", "minimum": 0},
+            "positions": {
+              "type": "array",
+              "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 3}
+            }
+          }
         }
       }
     },

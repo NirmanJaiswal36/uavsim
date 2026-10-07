@@ -1,5 +1,8 @@
-# The reference scenario: a swarm launches from a ground control station 500 m
-# west of a burning forest and flies in to search it.
+# The reference scenario: a swarm launches from a ground control station west of
+# a forest search area and flies in to find the targets hidden in it.
+#
+# The runway ends 200 m short of the forest's 85 m mission boundary, so the
+# transit leg is short enough to fly in a reasonable amount of sim time.
 #
 # Change the fleet block and re-run 'uavsim up' -- nothing else needs editing.
 # 'uavsim list vehicles' shows what else you can put there.
@@ -9,13 +12,16 @@ name: forest_rescue
 world:
   name: rescue
   roi: roi_forest              # the forest search area, centred on the world origin
-  gcs_pose: [-500, 0, 0, 0, 0, 0]
+  gcs_pose: [-395, 0, 0, 0, 0, 0]
 
 targets:
   fires: false
   casualties:
     count: 0
     # seed: 7                    # same seed, same layout, every run
+  rois:
+    count: 8                     # survivor / wreckage / tent / crate / signal fire,
+    seed: 17                     # each tagged with an ArUco 4x4_50 plate
 
 fleet:
   - type: ardupilot_iris_gimbal
@@ -25,6 +31,14 @@ fleet:
 
 spawn:
   spacing_m: 6                 # between landing pads; must clear 2x the biggest footprint
+
+backends:
+  ardupilot:
+    # A dedicated MAVLink output per vehicle for MAVROS. The endpoint in 'mavlink'
+    # (14650 + 10*index) is a single UDP port that exactly one process can bind, so
+    # examples/swarm/pymavlink_swarm.py and a mavros_node cannot share it. 14750+ is
+    # clear of PX4's 14540-14599 band, which ArduPilot must never enter.
+    extra_out: ["127.0.0.1:1475{index}"]
 
 ros2:
   bridge: true

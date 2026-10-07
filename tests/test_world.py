@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import itertools
+import math
+import re
 import sys
 import xml.dom.minidom
 from pathlib import Path
@@ -16,13 +19,21 @@ from uavsim.adapter import Pose                                  # noqa: E402
 from uavsim.allocator import FleetRequest, allocate              # noqa: E402
 from uavsim.registry import Registry                             # noqa: E402
 from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE           # noqa: E402
+from uavsim.world import DEFAULT_ROI_TYPES                       # noqa: E402
 from uavsim.world import (TargetSpec, WorldSpec, build, enu_to_geo,  # noqa: E402
-                          load_roi, place_casualties)
+                          load_roi, place_casualties, place_rois)
 
 
 @pytest.fixture(scope="module")
 def registry() -> Registry:
     return Registry()
+
+
+@pytest.fixture(scope="module")
+def built_with_rois(tmp_path_factory):
+    spec = WorldSpec(name="roi_world",
+                     targets=TargetSpec(fires=False, roi_count=8, roi_seed=17))
+    return build(spec, tmp_path_factory.mktemp("roi_worlds"))
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +54,6 @@ def test_world_is_well_formed_and_named(built):
 def test_world_has_exactly_one_plane_collision(built):
     """Two infinite planes make the ground-contact LCP singular and hang physics."""
     text = built.info.sdf_path.read_text()
-    import re
     stripped = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     assert stripped.count("<plane>") == 1
 
@@ -59,7 +69,7 @@ def test_world_contains_the_roi_the_gcs_and_the_targets(built):
     text = built.info.sdf_path.read_text()
     assert "grasspatch" in text and "Oak Tree" in text      # scenery came across
     assert "gcs_site" in text and "runway" in text
-    assert text.count('<model name="fire_') == len(built.fires) == 20
+    assert text.count('<model name="fire_') == len(built.fires) == 40
     assert text.count('<model name="casualty_') == len(built.casualties) == 4
 
 
@@ -149,9 +159,9 @@ def test_manifest_reports_everything_a_framework_needs(registry, built):
     data = manifest_mod.build(built, insts, endpoints)
 
     assert data["schema_version"] == manifest_mod.SCHEMA_VERSION
-    assert data["gcs"]["distance_to_roi_m"] == 500.0
-    assert data["roi"]["mission_radius_m"] == 60.0
-    assert len(data["targets"]["fires"]) == 20
+    assert data["gcs"]["distance_to_roi_m"] == 395.0
+    assert data["roi"]["mission_radius_m"] == 85.0
+    assert len(data["targets"]["fires"]) == 40
     assert len(data["vehicles"]) == 3
     for vehicle in data["vehicles"]:
         assert vehicle["endpoints"]
@@ -167,6 +177,130 @@ def test_manifest_topics_are_per_vehicle(registry, built):
     topics = [s["ros"]["topic"] for v in data["vehicles"]
               for s in v["capabilities"]["sensors"] if s.get("ros")]
     assert len(set(topics)) == len(topics)
+
+
+def test_the_gcs_leaves_200_m_of_open_ground_to_the_mission_boundary(built):
+    """The whole point of the standoff: the runway's far end is the forest-facing
+    extremity of the GCS, so that -- not the site origin -- is what must clear the
+    trees. See the arithmetic in uavsim/site.py."""
+    site = built.site
+    runway_end = built.site_pose.x + site.runway_x0_m + site.runway_length_m
+    assert -built.roi["mission_radius_m"] - runway_end == pytest.approx(200.0, abs=0.5)
+    apron_rear = built.site_pose.x + site.apron_x_m \
+        - (site.pad_rows * site.pad_spacing_m + 6) / 2.0
+    assert apron_rear < runway_end                      # the site points at the forest
+
+
+# -- regions of interest -------------------------------------------------------
+
+def test_rois_are_placed_clear_of_trunks_fires_and_each_other():
+    """An ROI under a canopy is an ROI whose marker is never seen, and two ROIs in one
+    camera frame make a detection impossible to attribute."""
+    roi = load_roi("roi_forest")
+    fires = [list(f) for f in roi["fires"]]
+    placed = place_rois(roi, TargetSpec(roi_count=8, roi_seed=17), fires)
+    assert len(placed) == 8
+    assert len({r.aruco_id for r in placed}) == 8
+    assert {r.type for r in placed} <= set(DEFAULT_ROI_TYPES)
+    for r in placed:
+        assert (r.x ** 2 + r.y ** 2) ** 0.5 <= roi["mission_radius_m"]
+        assert all(math.hypot(r.x - tx, r.y - ty) >= 6.0 for tx, ty in roi["trees"])
+        assert all(math.hypot(r.x - fx, r.y - fy) >= 8.0 for fx, fy, _ in fires)
+    for a, b in itertools.combinations(placed, 2):
+        assert math.hypot(a.x - b.x, a.y - b.y) >= 15.0
+
+
+def test_the_roi_marker_sits_beside_the_prop_not_under_it():
+    placed = place_rois(load_roi("roi_forest"), TargetSpec(roi_count=8, roi_seed=17))
+    for r in placed:
+        assert math.hypot(r.marker_x - r.x, r.marker_y - r.y) \
+            == pytest.approx(r.MARKER_OFFSET_M)
+
+
+def test_roi_placement_is_deterministic():
+    roi, spec = load_roi("roi_forest"), TargetSpec(roi_count=8, roi_seed=17)
+    assert place_rois(roi, spec) == place_rois(roi, spec)
+
+
+def test_explicit_roi_positions_are_used_verbatim():
+    spec = TargetSpec(roi_count=2, roi_positions=[[1.0, 2.0], [3.0, 4.0, 0.5]])
+    placed = place_rois(load_roi("roi_forest"), spec)
+    assert [(r.x, r.y, r.yaw) for r in placed] == [(1.0, 2.0, 0.0), (3.0, 4.0, 0.5)]
+
+
+def test_rois_add_no_plane_and_no_fuel_model_to_the_world(built_with_rois):
+    """ROI props are primitives on purpose: they must not add to first-run download
+    time, and they must not add a second plane collision."""
+    text = built_with_rois.info.sdf_path.read_text()
+    stripped = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    assert stripped.count("<plane>") == 1
+    assert text.count('<model name="roi_') == 8
+    for marker_id in range(8):
+        assert f"model://aruco_marker_{marker_id}" in text
+    assert text.count("fuel.gazebosim.org") == 200      # the forest's trees, nothing new
+
+
+def test_the_manifest_carries_roi_and_marker_ground_truth(built_with_rois):
+    data = manifest_mod.build(built_with_rois, [], {})
+    rois = data["targets"]["rois"]
+    assert len(rois) == 8
+    assert {r["marker"]["aruco_id"] for r in rois} == set(range(8))
+    for r in rois:
+        assert r["type"] in DEFAULT_ROI_TYPES
+        assert r["id"] == f"roi_{r['index']}"
+        assert len(r["enu"]) == 2 and r["geo"][0] < 0        # southern hemisphere
+        assert r["marker"]["dictionary"] == "4x4_50"
+        assert r["marker"]["size_m"] == 2.0
+        assert r["marker"]["model"] == f"aruco_marker_{r['marker']['aruco_id']}"
+
+
+def test_disabling_rois_leaves_them_out(built):
+    assert built.rois == []
+    assert "aruco_marker" not in built.info.sdf_path.read_text()
+
+
+# -- generated scenery ---------------------------------------------------------
+
+def test_the_forest_fragment_matches_its_generator():
+    """The fragment is generated and committed; this is what makes that safe."""
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    done = subprocess.run([sys.executable, "tools/gen_roi_forest.py", "--check"],
+                          cwd=root, capture_output=True, text=True)
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_the_roi_metadata_agrees_with_the_scenery():
+    """Metadata drifting out of step with the SDF is the bug the generator exists
+    to prevent, so assert the two against each other rather than against literals."""
+    roi = load_roi("roi_forest")
+    sdf = (Path(__file__).resolve().parents[1]
+           / "worlds" / "fragments" / "roi_forest.sdf").read_text()
+    assert roi["tree_count"] == len(roi["trees"]) == 200
+    assert sdf.count("models/Oak Tree") == 120
+    assert sdf.count("models/Pine Tree") == 80
+    assert sdf.count("model://grasspatch_visual") == 313
+    assert sdf.count('<model name="boundary') == 52
+    assert sdf.count("<plane>") == 0            # the one plane lives in base_world
+    assert sdf.count("navsat_sensor") == 1      # the PX4 backend needs it
+    assert len(roi["fires"]) == 40
+    for x, y, z in roi["fires"]:
+        assert (x * x + y * y) ** 0.5 <= roi["mission_radius_m"]
+        assert z == 0.40
+
+
+def test_the_forest_doubled_in_area_at_constant_density():
+    """Doubling the area means radius * sqrt(2) AND twice the trees: scaling the
+    positions alone would halve the density and read as a different place."""
+    roi = load_roi("roi_forest")
+    assert roi["mission_radius_m"] / 60.0 == pytest.approx(2 ** 0.5, rel=0.02)
+    assert roi["scenery_radius_m"] / 104.7 == pytest.approx(2 ** 0.5, rel=0.02)
+    old_density = 100 / (104.7 ** 2)
+    assert roi["tree_count"] / (roi["scenery_radius_m"] ** 2) \
+        == pytest.approx(old_density, rel=0.02)
+    inside = [t for t in roi["trees"]
+              if (t[0] ** 2 + t[1] ** 2) ** 0.5 <= roi["mission_radius_m"]]
+    assert len(inside) == 70                     # 35 before, same density inside too
 
 
 # -- rendering artefacts -------------------------------------------------------

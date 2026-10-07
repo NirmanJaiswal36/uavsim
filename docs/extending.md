@@ -118,10 +118,50 @@ The adapter only ever *describes* work; the supervisor runs it. See the interfac
 `registry/backends/ardupilot/` and `registry/backends/px4/`. The 17-line
 `registry/backends/static/adapter.py` is the minimal case.
 
+## An ROI prop type or a new marker id
+
+A new search-and-rescue prop is three edits and no code:
+
+1. a `{% macro %}` in `worlds/templates/rois.sdf.j2` built from primitives only — no
+   Fuel models (they cost first-run download time) and no `<plane>` (there is exactly one
+   plane collision per world);
+2. the name in `DEFAULT_ROI_TYPES` in `uavsim/world.py`;
+3. the same name in the `targets.rois.types` enum in
+   `registry/schemas/scenario.schema.json`.
+
+Types cycle in order, so `count: 8` over five types gives two of the first three.
+
+Marker ids beyond 7 need more marker models, and the schema caps `count` at however many
+ship:
+
+```bash
+python3 tools/gen_aruco_textures.py --ids 0-15
+```
+
+then raise `maximum` on `targets.rois.count`. The PNGs and model files are generated and
+committed — do not hand-edit them, `--check` will revert you.
+
+## Resizing the forest
+
+`worlds/fragments/roi_forest.{sdf,yaml}` are generated. Change the numbers, not the SDF:
+
+```bash
+python3 tools/gen_roi_forest.py --mission-radius 85 --scenery-radius 148 \
+        --oak 120 --pine 80 --fires 40 --seed 20251007
+```
+
+Keep the counts proportional to the *area* if you want the density unchanged — the
+generator's docstring has the arithmetic. If you change `--mission-radius`, also update
+`DEFAULT_GCS_POSE` in `uavsim/site.py`: the GCS standoff is derived from the mission
+radius so that 200 m of open ground remains between the runway end and the boundary, and
+the arithmetic is in that module's docstring.
+
 ## Checking your work
 
 ```bash
 python3 -m pytest tests/ -q                 # schema, allocation, rendering
+python3 tools/gen_roi_forest.py --check     # the committed forest matches the generator
+python3 tools/gen_aruco_textures.py --check # ditto the marker assets (needs OpenCV)
 ./bin/uavsim list vehicles                  # does it appear
 ./bin/uavsim plan scenarios/<yours>.yaml    # does it allocate
 ./bin/uavsim plan scenarios/<yours>.yaml --sdf   # what SDF does it render

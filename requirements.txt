@@ -8,3 +8,8 @@ PyYAML>=5.4
 Jinja2>=3.0
 jsonschema>=3.2
 pymavlink>=2.4      # autopilot readiness and `uavsim verify --live`
+
+# Optional, authoring only: tools/gen_aruco_textures.py regenerates the ArUco plate
+# textures. The generated PNGs under models/aruco_marker_*/ are committed, so a normal
+# `uavsim world` / `uavsim up` never needs this:
+#   pip install opencv-contrib-python
