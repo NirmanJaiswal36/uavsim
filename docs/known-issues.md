@@ -90,6 +90,32 @@ network, before timing or scripting anything:
 ./bin/uavsim up scenarios/forest_static.yaml      # then uavsim down
 ```
 
+## Vehicles missing from the GUI but flying fine
+
+If a vehicle is created while the GUI is still building its 3D scene, the GUI never
+draws it. The model exists in the server, its autopilot gets GPS lock and it will
+fly, but there is nothing on the pad, and `/gui/move_to` logs `Target '<name>' not
+found`. The server is up long before the GUI (render engine plus ~600 world
+entities), so spawning as soon as the server answers loses the race. How many
+vehicles go missing depends on timing, so it comes and goes. PX4 vehicles usually
+escape it because PX4 SITL creates its own model later, when its process starts.
+
+`uavsim up` therefore waits for the GUI to advertise `/gui/move_to`, which happens
+once its scene exists, before it spawns anything or starts any autopilot. It
+warns if the GUI never gets there. Headless runs and `gazebo.start: false` do not
+wait. If you start the server yourself, open the GUI before running `uavsim up`.
+
+To check a run, ask the GUI for a vehicle by name. The camera should jump to it:
+
+```bash
+gz service -s /gui/move_to --reqtype gz.msgs.StringMsg --reptype gz.msgs.Boolean \
+  --timeout 5000 --req 'data: "ardupilot_iris_gimbal_0"'
+```
+
+The default overview camera frames all 24 pads and the forest edge, which puts it
+~90 m from the pads, where a 0.5 m quadrotor is a couple of pixels. "Move to", as
+below, is how you get a look at one.
+
 ## Finding your own vehicles in the entity tree
 
 Gazebo's entity tree lists everything in creation order, and the vehicles are

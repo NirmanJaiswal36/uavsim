@@ -117,6 +117,8 @@ def cmd_up(args) -> int:
         print(f"bridge     {result['bridge_config']}")
     if scn.supervisor == "tmux":
         print(f"consoles   tmux attach -t uavsim-{plan.world.info.name}")
+    for warning in result["warnings"]:
+        print(f"\nWARNING: {warning}")
     not_ready = [n for n, ok in result["ready"].items() if not ok]
     if not_ready:
         print(f"\nWARNING: no autopilot heartbeat yet from: {', '.join(not_ready)}")

@@ -139,6 +139,8 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
     supervisor.start_session()
 
     spawner = Spawner(world=plan_.world.info.name)
+    warnings: list[str] = []
+    started_gui = scenario.gazebo.get("start", True) and not scenario.gazebo.get("headless", False)
     if scenario.gazebo.get("start", True):
         supervisor.start_gazebo(plan_.world.info.sdf_path,
                                 headless=bool(scenario.gazebo.get("headless", False)),
@@ -147,6 +149,11 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
         raise OrchestratorError(
             f"world {plan_.world.info.name!r} never came up; check the gazebo window/log in "
             f"{supervisor.log_dir}")
+    # Spawning before the GUI's scene exists leaves those vehicles undrawn for the
+    # whole run -- see Spawner.wait_for_gui.
+    if started_gui and not spawner.wait_for_gui(timeout_s=120.0):
+        warnings.append("the Gazebo GUI never reported its 3D scene ready; vehicles were "
+                        "spawned anyway and may be missing from the GUI (they still fly)")
 
     sdfs = render_all(plan_)
     for inst in plan_.instances:
@@ -195,7 +202,7 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
     manifest_path = manifest_mod.write(data, plan_.run_dir / "manifest.json")
 
     return {"manifest": data, "manifest_path": manifest_path, "supervisor": supervisor,
-            "bridge_config": bridge_path, "ready": ready}
+            "bridge_config": bridge_path, "ready": ready, "warnings": warnings}
 
 
 def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
