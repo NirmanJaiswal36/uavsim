@@ -30,6 +30,8 @@ Built for the MeitY Grand Challenge, useful for any multi-UAV work.
 - **A forest region of interest** — ~200 trees, grass and an 85 m boundary ring at the
   world origin (about 2.3 ha of mission area). The world's geographic origin *is* the
   ROI centre. The scenery is generated: see [`tools/gen_roi_forest.py`](tools/gen_roi_forest.py).
+  It is nested under one `forest_scenery` model, so Gazebo's entity tree stays short
+  enough to find your own vehicles in.
 - **8 regions of interest** — themed search-and-rescue sites (survivor, wreckage, tent,
   supply crate, signal fire), each paired with a 2 m **ArUco 4x4_50** plate so detection
   is deterministic and scoreable. Placed from a seed, clear of trunks, and reported in

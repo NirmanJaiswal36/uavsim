@@ -90,6 +90,30 @@ network, before timing or scripting anything:
 ./bin/uavsim up scenarios/forest_static.yaml      # then uavsim down
 ```
 
+## Finding your own vehicles in the entity tree
+
+Gazebo's entity tree lists everything in creation order, and the vehicles are
+created **last** -- they are not in the world file at all, the spawner adds them at
+runtime over the `create` service. With the forest's ~565 scenery entities flat in
+the world, the six drones landed at rows 585-590 of 591, under a wall of
+near-identical `grasspatch_*` and `Oak_Tree_*` rows. That reads exactly like "the
+drones are not spawning", and it cost real debugging time.
+
+The grass, trees and boundary posts therefore live inside one static
+`forest_scenery` parent model, so the top level of the tree is ~27 rows and the
+vehicles are visible without scrolling. Their scoped names are
+`forest_scenery::Oak_Tree_Inside_1` and so on; nothing in the environment refers to
+scenery entities by name, but a script of yours might.
+
+To jump the camera to anything, by name:
+
+```bash
+gz service -s /gui/move_to --reqtype gz.msgs.StringMsg --reptype gz.msgs.Boolean \
+  --timeout 5000 --req 'data: "ardupilot_iris_gimbal_0"'
+```
+
+or right-click the model in the Entity Tree and choose "Move to".
+
 ## ArUco markers are not detectable much above 20 m
 
 The plate is 2 m and the gimbal camera is 640×480 with a 2.0 rad horizontal FOV, so the

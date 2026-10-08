@@ -234,7 +234,7 @@ def test_rois_add_no_plane_and_no_fuel_model_to_the_world(built_with_rois):
     text = built_with_rois.info.sdf_path.read_text()
     stripped = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     assert stripped.count("<plane>") == 1
-    assert text.count('<model name="roi_') == 8
+    assert len(re.findall(r'<model name="roi_\d+_', text)) == 8
     for marker_id in range(8):
         assert f"model://aruco_marker_{marker_id}" in text
     assert text.count("fuel.gazebosim.org") == 200      # the forest's trees, nothing new
@@ -287,6 +287,39 @@ def test_the_roi_metadata_agrees_with_the_scenery():
     for x, y, z in roi["fires"]:
         assert (x * x + y * y) ** 0.5 <= roi["mission_radius_m"]
         assert z == 0.40
+
+
+def test_the_bulk_scenery_is_nested_so_the_entity_tree_stays_navigable():
+    """Gazebo's entity tree lists everything in creation order, and vehicles are
+    created last, at runtime. Flat scenery buries them under hundreds of
+    near-identical rows and the vehicles look like they never spawned -- so the
+    grass, trees and posts live inside one collapsible parent model.
+    """
+    sdf = (Path(__file__).resolve().parents[1]
+           / "worlds" / "fragments" / "roi_forest.sdf").read_text()
+    stripped = re.sub(r"<!--.*?-->", "", sdf, flags=re.S)
+    assert stripped.count('<model name="forest_scenery">') == 1
+
+    # top-level entries are at four-space indent; everything bulky is deeper
+    top_level = re.findall(r"^    <(?:model name=\"([^\"]+)\"|include)", stripped, re.M)
+    assert sorted(n for n in top_level if n) == ["axes", "forest_scenery"]
+    assert "\n    <include>" not in stripped, "a top-level include would be its own tree row"
+
+    # and the content is still all there, just one level down
+    assert stripped.count("model://grasspatch_visual") == 313
+    assert stripped.count('<model name="boundary') == 52
+    assert stripped.count("fuel.gazebosim.org") == 200
+
+
+def test_the_axis_marker_stays_at_world_level():
+    """It carries the world's only navsat sensor, and the PX4 backend depends on
+    that sensor's topic path -- nesting it would silently move the topic."""
+    sdf = (Path(__file__).resolve().parents[1]
+           / "worlds" / "fragments" / "roi_forest.sdf").read_text()
+    assert sdf.count("navsat_sensor") == 1
+    axes = sdf.index('<model name="axes">')
+    scenery = sdf.index('<model name="forest_scenery">')
+    assert axes < scenery, "axes must not be inside the scenery model"
 
 
 def test_the_forest_doubled_in_area_at_constant_density():

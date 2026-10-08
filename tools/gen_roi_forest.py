@@ -302,9 +302,24 @@ def _invocation(p: ForestParams) -> str:
             f"--fires {p.fire_count} --seed {p.seed}")
 
 
+SCENERY_MODEL_NAME = "forest_scenery"
+
+
 def render_sdf(p: ForestParams, tiles: list[tuple[str, float, float]],
                posts: list[tuple[str, float, float]],
                trees: list[tuple[str, str, float, float, float]]) -> str:
+    """The fragment, with the bulk scenery nested inside one static parent model.
+
+    Why nested.  The grass, trees and posts are ~565 entities, and Gazebo's entity
+    tree lists everything the world contains in creation order.  Vehicles are created
+    last, at runtime, so a flat fragment buries them under hundreds of near-identical
+    `grasspatch_*` and `Oak_Tree_*` rows -- and a user looking for their own drone
+    concludes it never spawned.  One collapsible parent turns 565 rows into 1.
+
+    ``axes`` deliberately stays at world level: it carries the world's only navsat
+    sensor, and nesting it would change that sensor's topic path, which the PX4
+    backend depends on.
+    """
     entities = len(tiles) + len(posts) + len(trees) + 1
     out = [f"""\
 <!-- Forest region-of-interest scenery, centred on the world origin.
@@ -315,52 +330,61 @@ def render_sdf(p: ForestParams, tiles: list[tuple[str, float, float]],
      oak={p.oak_count}, pine={p.pine_count}, fires={p.fire_count}, seed={p.seed}.
      Included by worlds/templates/base_world.sdf.j2. {entities} entities:
      {len(tiles)} grass tiles, {len(trees)} trees, {len(posts)} boundary posts, 1 axis marker.
+     The grass, trees and posts are nested in one static '{SCENERY_MODEL_NAME}' model so
+     that Gazebo's entity tree stays navigable: a flat list buries the runtime-spawned
+     vehicles under hundreds of scenery rows. Their scoped names therefore read
+     '{SCENERY_MODEL_NAME}::Oak_Tree_Inside_1'. The axis marker stays at world level
+     because it carries the navsat sensor the PX4 backend needs.
      Declares no plane geometry and no ground plane: there is exactly one plane
      collision per world, in base_world.sdf.j2.
      Fire/casualty/ROI targets are placed by the scenario, see roi_forest.yaml. -->
 """]
+    out.append(AXES_SDF)
+    out.append(f'    <model name="{SCENERY_MODEL_NAME}">\n')
+    out.append("      <static>true</static>\n")
+    out.append("      <pose>0 0 0 0 0 0</pose>\n")
     for name, x, y in tiles:
         out.append(f"""\
-    <include>
-      <uri>model://grasspatch_visual</uri>
-      <name>{name}</name>
-      <pose>{x:.5f} {y:.5f} 0.00000 0 0 0</pose>
-    </include>
+      <include>
+        <uri>model://grasspatch_visual</uri>
+        <name>{name}</name>
+        <pose>{x:.5f} {y:.5f} 0.00000 0 0 0</pose>
+      </include>
 """)
-    out.append(AXES_SDF)
     for name, x, y in posts:
         out.append(f"""\
-    <model name="{name}">
-      <static>true</static>
-      <pose>{x:.3f} {y:.3f} 1.0 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.20</radius>
-              <length>2.0</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.20</radius>
-              <length>2.0</length>
-            </cylinder>
-          </geometry>
-        </visual>
-      </link>
-    </model>
+      <model name="{name}">
+        <static>true</static>
+        <pose>{x:.3f} {y:.3f} 1.0 0 0 0</pose>
+        <link name="link">
+          <collision name="collision">
+            <geometry>
+              <cylinder>
+                <radius>0.20</radius>
+                <length>2.0</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <visual name="visual">
+            <geometry>
+              <cylinder>
+                <radius>0.20</radius>
+                <length>2.0</length>
+              </cylinder>
+            </geometry>
+          </visual>
+        </link>
+      </model>
 """)
     for uri, name, x, y, yaw in trees:
         out.append(f"""\
-    <include>
-      <uri>{uri}</uri>
-      <name>{name}</name>
-      <pose>{x:.4f} {y:.4f} 0 0 0 {yaw:.4f}</pose>
-    </include>
+      <include>
+        <uri>{uri}</uri>
+        <name>{name}</name>
+        <pose>{x:.4f} {y:.4f} 0 0 0 {yaw:.4f}</pose>
+      </include>
 """)
+    out.append("    </model>\n")
     return "".join(out)
 
 

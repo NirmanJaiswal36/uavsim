@@ -156,6 +156,13 @@ Reproducibility comes from `--check` instead, which regenerates in memory and
 byte-compares; `tests/test_world.py` and `tests/test_registry.py` run it. The exact
 regeneration command is recorded in `roi_forest.yaml` under `generator_args`.
 
+The generated fragment nests its grass, trees and boundary posts inside one static
+`forest_scenery` model. That is not cosmetic: Gazebo's entity tree lists entities in
+creation order and vehicles are created last, so flat scenery puts the fleet at the
+bottom of a 591-row list and makes it look like nothing spawned. The axis marker
+stays at world level because it carries the world's only navsat sensor, and nesting
+it would move that sensor's topic path out from under the PX4 backend.
+
 ## Run directory
 
 `$UAVSIM_RUN_DIR/<world>/` (default `/tmp/uavsim/<world>/`):
