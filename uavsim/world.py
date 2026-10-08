@@ -279,9 +279,36 @@ def terrain_patch(gcs: Pose, roi: dict[str, Any], *, margin_m: float = 150.0,
             "sx": round(x1 - x0, 2), "sy": round(y1 - y0, 2), "depth": depth_m}
 
 
+# Where the GUI camera's eye sits in the site frame, as an offset from the apron
+# centre, and the height of what it looks at. Chosen so that all 24 pads and the ROI
+# boundary sit inside a conservative 60x35 degree frame -- see
+# test_the_default_camera_frames_the_landing_pads.
+CAMERA_EYE_OFFSET_M = (-70.0, -40.0, 28.0)
+CAMERA_TARGET_Z_M = 1.5
+
+
+def camera_eye_and_target(spec: WorldSpec) -> tuple[Pose, Pose]:
+    """The GUI camera's eye and the point it looks at, both in world coordinates."""
+    dx, dy, dz = CAMERA_EYE_OFFSET_M
+    eye = compose(spec.gcs_pose, Pose(x=spec.site.apron_x_m + dx,
+                                      y=spec.site.apron_y_m + dy, z=dz))
+    target = compose(spec.gcs_pose, Pose(x=spec.site.apron_x_m, y=spec.site.apron_y_m,
+                                         z=CAMERA_TARGET_Z_M))
+    return eye, target
+
+
 def _camera_pose(spec: WorldSpec) -> str:
-    """Behind and above the GCS, looking down the runway toward the ROI."""
-    x = spec.gcs_pose.x - 120.0
-    y = spec.gcs_pose.y - 90.0
-    yaw = math.atan2(spec.gcs_pose.y + 90.0 - y, spec.gcs_pose.x + 120.0 - x)
-    return f"{x:.1f} {y:.1f} 90 0 0.32 {yaw:.3f}"
+    """Behind and above the apron, framing the pads with the ROI beyond them.
+
+    Aimed at the apron geometrically rather than with a fixed pitch. The pads are
+    only ~120 m from the eye but tens of metres below it, so a pitch chosen to look
+    at the ROI instead puts them a couple of degrees *below the bottom of the frame*
+    -- which is the bug where you bring the world up and cannot find your own
+    vehicles. Deriving the aim from ``SiteLayout`` also means it survives moving the
+    apron or rotating the whole GCS, which the old fixed pitch did not.
+    """
+    eye, target = camera_eye_and_target(spec)
+    dx, dy, dz = target.x - eye.x, target.y - eye.y, target.z - eye.z
+    yaw = math.atan2(dy, dx)
+    pitch = math.atan2(-dz, math.hypot(dx, dy))      # positive pitch looks down
+    return f"{eye.x:.1f} {eye.y:.1f} {eye.z:.1f} 0 {pitch:.3f} {yaw:.3f}"

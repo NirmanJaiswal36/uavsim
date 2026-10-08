@@ -18,8 +18,8 @@ from uavsim import bridge, manifest as manifest_mod              # noqa: E402
 from uavsim.adapter import Pose                                  # noqa: E402
 from uavsim.allocator import FleetRequest, allocate              # noqa: E402
 from uavsim.registry import Registry                             # noqa: E402
-from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE           # noqa: E402
-from uavsim.world import DEFAULT_ROI_TYPES                       # noqa: E402
+from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, compose  # noqa: E402
+from uavsim.world import DEFAULT_ROI_TYPES, camera_eye_and_target  # noqa: E402
 from uavsim.world import (TargetSpec, WorldSpec, build, enu_to_geo,  # noqa: E402
                           load_roi, place_casualties, place_rois)
 
@@ -316,6 +316,45 @@ def test_ground_visual_never_overlaps_the_roi_grass(built):
     py0, py1 = patch["cy"] - patch["sy"] / 2, patch["cy"] + patch["sy"] / 2
     overlaps = px0 < xmax and px1 > xmin and py0 < ymax and py1 > ymin
     assert not overlaps, f"terrain {patch} overlaps grass extent {built.roi['ground_extent']}"
+
+
+def test_the_default_camera_frames_the_landing_pads(built):
+    """You must be able to see your own vehicles when the world comes up.
+
+    The pads are ~120 m from the eye but tens of metres below it, so a camera aimed
+    at the ROI with a fixed pitch leaves them just under the bottom edge of the
+    frame -- vehicles spawn correctly and are invisible, which reads as "the drones
+    are not spawning". Checked against a conservative 60x35 degree frame.
+    """
+    spec = WorldSpec(gcs_pose=built.site_pose, site=built.site)
+    eye, target = camera_eye_and_target(spec)
+    dx, dy, dz = target.x - eye.x, target.y - eye.y, target.z - eye.z
+    yaw = math.atan2(dy, dx)
+    pitch = math.atan2(-dz, math.hypot(dx, dy))
+
+    pads = [compose(built.site_pose, slot) for slot in built.site.pad_slots()]
+    assert len(pads) == 24
+    for pad in pads:
+        px, py, pz = pad.x - eye.x, pad.y - eye.y, 0.3 - eye.z
+        off_v = math.degrees(math.atan2(-pz, math.hypot(px, py)) - pitch)
+        off_h = math.degrees((math.atan2(py, px) - yaw + math.pi) % (2 * math.pi) - math.pi)
+        assert abs(off_v) < 17.5, f"pad {off_v:.1f} deg off vertically, outside the frame"
+        assert abs(off_h) < 30.0, f"pad {off_h:.1f} deg off horizontally"
+
+
+def test_the_default_camera_also_shows_the_roi(built):
+    """Framing the pads must not cost us the view of what the mission is about."""
+    spec = WorldSpec(gcs_pose=built.site_pose, site=built.site)
+    eye, target = camera_eye_and_target(spec)
+    dx, dy, dz = target.x - eye.x, target.y - eye.y, target.z - eye.z
+    yaw, pitch = math.atan2(dy, dx), math.atan2(-dz, math.hypot(dx, dy))
+
+    bx, by = -built.roi["mission_radius_m"], 0.0        # near edge of the ROI
+    rx, ry, rz = bx - eye.x, by - eye.y, 0.0 - eye.z
+    off_v = math.degrees(math.atan2(-rz, math.hypot(rx, ry)) - pitch)
+    off_h = math.degrees((math.atan2(ry, rx) - yaw + math.pi) % (2 * math.pi) - math.pi)
+    assert abs(off_v) < 17.5 and abs(off_h) < 30.0, \
+        f"ROI boundary {off_v:.1f}/{off_h:.1f} deg off axis, outside the frame"
 
 
 def test_world_has_the_expected_lighting(built):
