@@ -83,3 +83,80 @@ def test_headless_runs_do_not_wait_for_a_gui(recorded_up):
 def test_attaching_to_an_existing_server_does_not_wait_for_a_gui(recorded_up):
     # with start: false the GUI, if any, is the user's and is already up
     assert "wait_for_gui" not in recorded_up(headless=False, start=False)
+
+
+# -- the ROI layout ------------------------------------------------------------
+
+def _scenario(**gazebo):
+    scn = scenario_mod.load(REPO_ROOT / "scenarios" / "forest_rescue.yaml")
+    scn.gazebo.update(gazebo)
+    return scn
+
+
+def test_the_challenge_scenario_has_ten_rois_and_no_fixed_seed():
+    targets = _scenario().world.targets
+    assert targets.roi_count == 10
+    assert targets.roi_seed is None
+
+
+def test_random_spells_a_fresh_seed(tmp_path):
+    path = tmp_path / "s.yaml"
+    path.write_text("fleet: []\ntargets: {rois: {count: 2, seed: random}}\n")
+    assert scenario_mod.load(path).world.targets.roi_seed is None
+    path.write_text("fleet: []\ntargets: {rois: {count: 2, seed: 5}}\n")
+    assert scenario_mod.load(path).world.targets.roi_seed == 5
+
+
+def test_every_up_draws_a_fresh_layout(monkeypatch, tmp_path):
+    monkeypatch.setattr(orchestrator, "RUNS_DIR", tmp_path)
+    a = orchestrator.plan(_scenario(), check_environment=False)
+    b = orchestrator.plan(_scenario(), check_environment=False)
+    assert a.world.targets.roi_seed != b.world.targets.roi_seed
+    assert [(r.x, r.y) for r in a.world.rois] != [(r.x, r.y) for r in b.world.rois]
+
+
+def test_an_explicit_seed_replays_a_layout(monkeypatch, tmp_path):
+    monkeypatch.setattr(orchestrator, "RUNS_DIR", tmp_path)
+    a = orchestrator.plan(_scenario(), check_environment=False, roi_seed=42)
+    b = orchestrator.plan(_scenario(), check_environment=False, roi_seed=42)
+    assert a.world.targets.roi_seed == 42
+    assert [(r.x, r.y, r.yaw) for r in a.world.rois] == [(r.x, r.y, r.yaw) for r in b.world.rois]
+
+
+def test_commands_on_a_running_run_keep_its_layout(monkeypatch, tmp_path):
+    """'uavsim spawn' re-plans and rewrites the manifest; with a fresh seed it would
+    describe ROIs that are not in the running world."""
+    monkeypatch.setattr(orchestrator, "RUNS_DIR", tmp_path)
+    calls: list[str] = []
+    monkeypatch.setattr(orchestrator, "Supervisor", lambda **kw: _Recorder(calls, **kw))
+    monkeypatch.setattr(orchestrator, "Spawner", lambda **kw: _Recorder(calls, **kw))
+
+    up_plan = orchestrator.plan(_scenario(), check_environment=False)
+    orchestrator.up(up_plan, wait_ready=False, start_bridge=False)
+    seed = up_plan.world.targets.roi_seed
+
+    state = orchestrator.read_run_state(up_plan.run_dir)
+    assert state["roi_seed"] == seed
+    for attached in (orchestrator.plan(_scenario(), check_environment=False, attach=True),
+                     orchestrator.plan(_scenario(start=False), check_environment=False)):
+        assert attached.world.targets.roi_seed == seed
+        assert [(r.x, r.y) for r in attached.world.rois] == \
+            [(r.x, r.y) for r in up_plan.world.rois]
+
+
+def test_up_writes_the_answers_only_to_the_judge_file(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.setattr(orchestrator, "RUNS_DIR", tmp_path)
+    calls: list[str] = []
+    monkeypatch.setattr(orchestrator, "Supervisor", lambda **kw: _Recorder(calls, **kw))
+    monkeypatch.setattr(orchestrator, "Spawner", lambda **kw: _Recorder(calls, **kw))
+    plan = orchestrator.plan(_scenario(), check_environment=False)
+    result = orchestrator.up(plan, wait_ready=False, start_bridge=False)
+
+    truth = json.loads((plan.run_dir / "ground_truth.json").read_text())
+    assert truth["roi_seed"] == plan.world.targets.roi_seed
+    assert len(truth["rois"]) == 10
+    manifest = json.loads(result["manifest_path"].read_text())
+    assert "rois" not in manifest["targets"]
+    assert manifest["targets"]["roi_count"] == 10

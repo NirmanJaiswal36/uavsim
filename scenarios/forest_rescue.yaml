@@ -21,8 +21,10 @@ targets:
     count: 0
     # seed: 7                    # same seed, same layout, every run
   rois:
-    count: 8                     # survivor / wreckage / tent / crate / signal fire,
-    seed: 17                     # each tagged with an ArUco 4x4_50 plate
+    count: 10                    # survivor / wreckage / tent / crate / signal fire, two
+                                 # of each, each tagged with an ArUco 4x4_50 plate (ids 0-9)
+    # seed: 17                   # omitted: a fresh layout on every 'uavsim up'.
+                                 # 'uavsim up --seed N' replays one.
 
 fleet:
   - type: ardupilot_iris_gimbal

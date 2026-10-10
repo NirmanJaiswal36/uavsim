@@ -8,9 +8,10 @@ registry/backends/, not editing this file.
 
 from __future__ import annotations
 
+import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -53,14 +54,54 @@ def _run_dir(scenario: Scenario) -> Path:
     return RUNS_DIR / scenario.world.name
 
 
+RUN_STATE = "run_state.json"
+
+
+def read_run_state(run_dir: Path) -> dict[str, Any]:
+    """What ``up`` decided for the run in ``run_dir``; empty when nothing is up."""
+    try:
+        return json.loads((run_dir / RUN_STATE).read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _resolve_roi_seed(scenario: Scenario, run_dir: Path, roi_seed: int | None,
+                      attach: bool) -> int:
+    """The layout seed: explicit, else the running run's, else the scenario's, else new.
+
+    A scenario normally leaves the seed out so every run is a fresh layout. Anything
+    that talks to a run that is already up (spawn, down, verify) must rebuild *that*
+    layout, though -- ``add`` re-plans and rewrites the manifest -- so ``up`` records
+    the seed it drew and ``attach`` reads it back.
+    """
+    if roi_seed is not None:
+        return int(roi_seed)
+    if attach and "roi_seed" in (state := read_run_state(run_dir)):
+        return int(state["roi_seed"])
+    if scenario.world.targets.roi_seed is not None:
+        return scenario.world.targets.roi_seed
+    return world_mod.new_seed()
+
+
 def plan(scenario: Scenario, registry: Registry | None = None, *,
-         check_environment: bool = True) -> Plan:
-    """Resolve, allocate and render everything, touching nothing outside build/."""
+         check_environment: bool = True, roi_seed: int | None = None,
+         attach: bool = False) -> Plan:
+    """Resolve, allocate and render everything, touching nothing outside build/.
+
+    ``attach`` plans for the run that is already up, reusing its ROI layout;
+    without it a scenario that leaves the seed out gets a fresh one.
+    """
     registry = registry or Registry()
     run_dir = _run_dir(scenario)
 
+    # gazebo.start: false means 'up' joins a server that already has its ROIs
+    attach = attach or not scenario.gazebo.get("start", True)
+    seed = _resolve_roi_seed(scenario, run_dir, roi_seed, attach)
+    world_spec = replace(scenario.world,
+                         targets=replace(scenario.world.targets, roi_seed=seed))
+
     resource_paths = [str(PKG_ROOT / "models"), str(PKG_ROOT / "worlds"), str(BUILD_WORLDS)]
-    built = world_mod.build(scenario.world, BUILD_WORLDS,
+    built = world_mod.build(world_spec, BUILD_WORLDS,
                             resource_paths=resource_paths,
                             plugin_paths=[str(PKG_ROOT / "build")])
 
@@ -134,6 +175,14 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
 
     scenario = plan_.scenario
     env = gazebo_env(plan_)
+    # first, so that a run which dies half-way up can still be brought down cleanly
+    _write_json(plan_.run_dir / RUN_STATE, {
+        "scenario": str(scenario.path),
+        "world": plan_.world.info.name,
+        "roi_seed": plan_.world.targets.roi_seed,
+        "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    })
+    _write_json(plan_.run_dir / "ground_truth.json", manifest_mod.ground_truth(plan_.world))
     supervisor = Supervisor(session=f"uavsim-{plan_.world.info.name}",
                             log_dir=plan_.run_dir / "logs", kind=scenario.supervisor)
     supervisor.start_session()
@@ -216,7 +265,6 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
     if not manifest_path.exists():
         raise OrchestratorError(
             f"no run to add to: {manifest_path} does not exist (use 'uavsim up' first)")
-    import json
 
     existing = json.loads(manifest_path.read_text())
     taken_names = {v["name"] for v in existing["vehicles"]}
@@ -270,6 +318,12 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
     return {"instances": newcomers, "ready": ready, "manifest_path": manifest_path}
 
 
+def _write_json(path: Path, data: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return path
+
+
 def _bridge_process(config: Path):
     from .adapter import ProcessSpec
 
@@ -295,6 +349,8 @@ def down(plan_: Plan, *, stop_gazebo: bool = False) -> list[str]:
         # SIGINT, never SIGKILL: ArduPilotPlugin's lock-step wait only breaks on a signal.
         for name in ("gz", "ruby", "gz-sim-server", "gz-sim-gui"):
             report.extend(Supervisor._kill_group(name))
+        # the layout dies with the world; the next 'up' draws a fresh one
+        (plan_.run_dir / RUN_STATE).unlink(missing_ok=True)
     return report
 
 

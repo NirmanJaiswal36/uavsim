@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import math
 import random
-from collections.abc import Sequence
+import secrets
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,41 @@ EARTH_RADIUS_M = 6378137.0
 # The search-and-rescue sites an ROI can be. Each is a Jinja macro in rois.sdf.j2.
 DEFAULT_ROI_TYPES = ("survivor", "wreckage", "tent", "crate", "signal_fire")
 
+# Top-down footprint of each ROI prop as ``(x, y, radius)`` circles in the prop frame
+# (+x is the prop's heading), each enclosing one or more visuals of the macro of the
+# same name in rois.sdf.j2. Keep the two in step: the marker offset is derived from
+# these, and a visual that pokes out of its circle ends up under the plate -- which is
+# how the wreckage's scorch disc came to z-fight the marker.
+PROP_FOOTPRINTS: dict[str, tuple[tuple[float, float, float], ...]] = {
+    "survivor": ((0.0, 0.0, 0.50), (-0.55, 0.0, 0.42), (0.45, 0.0, 0.12),
+                 (0.10, 0.42, 0.33)),
+    "wreckage": ((0.0, 0.0, 3.20),                      # scorch; covers fuselage, wings
+                 (-2.40, -0.30, 1.38)),                 # charred tail, behind
+    "tent": ((0.0, 0.0, 1.72), (1.70, 0.0, 0.98)),      # body + pole, ground sheet
+    "crate": ((0.0, 0.0, 0.90), (-2.10, 0.40, 1.90)),   # box + straps, canopy behind
+    "signal_fire": ((0.0, 0.0, 1.10), (1.50, 0.0, 0.96),
+                    (-0.75, 1.30, 0.96), (-0.75, -1.30, 0.96)),   # embers + 3 logs
+}
+
+MARKER_PROP_GAP_M = 0.5        # daylight between a prop's footprint and its plate
+MARKER_Z_M = 0.05              # above every ground-hugging visual (grass at 0, scorch 0.02)
+
+
+def marker_offset_m(roi_type: str, marker_size_m: float) -> float:
+    """How far along the prop's heading the plate's centre has to sit to clear it.
+
+    The plate is axis-aligned in the world while the prop's yaw is random, so relative
+    to the prop the plate can be at any rotation: it is cleared by a circle of half its
+    diagonal. ``(d, 0)`` must then be that far plus the gap from every footprint circle.
+    """
+    clear = marker_size_m / math.sqrt(2.0) + MARKER_PROP_GAP_M
+    offset = 0.0
+    for cx, cy, r in PROP_FOOTPRINTS[roi_type]:
+        reach = r + clear
+        if abs(cy) < reach:
+            offset = max(offset, cx + math.sqrt(reach * reach - cy * cy))
+    return math.ceil(offset * 10.0) / 10.0
+
 
 @dataclass
 class TargetSpec:
@@ -42,12 +78,14 @@ class TargetSpec:
     casualty_seed: int = 0
     casualty_positions: list[list[float]] | None = None
     roi_count: int = 0
-    roi_seed: int = 0
+    roi_seed: int | None = 0             # None: draw one with new_seed() before building
     roi_types: tuple[str, ...] = DEFAULT_ROI_TYPES
     roi_marker_dict: str = "4x4_50"
     roi_marker_size_m: float = 2.0
     roi_first_marker_id: int = 0
-    roi_min_tree_m: float = 6.0          # clears an oak canopy, so the plate is visible
+    roi_min_tree_m: float = 6.0          # prop centre to trunk
+    roi_marker_min_tree_m: float = 7.5   # plate centre to trunk: a 5 m oak canopy, half
+                                         # the plate's diagonal and a metre to spare
     roi_positions: list[list[float]] | None = None
 
 
@@ -65,8 +103,12 @@ class WorldSpec:
 class RoiPlacement:
     """One search-and-rescue region of interest: a themed prop plus its ArUco plate.
 
-    The plate sits ``MARKER_OFFSET_M`` along the prop's heading rather than under it,
-    so the prop never occludes the marker from a nadir camera.
+    The plate sits ``marker_offset_m`` along the prop's heading rather than under it,
+    so the prop never occludes the marker from a nadir camera (see marker_offset_m()).
+
+    ``site`` is the neutral label the world uses for the entity names. It is a seeded
+    shuffle of the indices, so neither the name nor the SDF order gives away which
+    marker id or prop type is where.
     """
 
     id: int
@@ -75,16 +117,16 @@ class RoiPlacement:
     x: float
     y: float
     yaw: float
-
-    MARKER_OFFSET_M = 3.0
+    marker_offset_m: float = 3.0
+    site: int = 0
 
     @property
     def marker_x(self) -> float:
-        return self.x + self.MARKER_OFFSET_M * math.cos(self.yaw)
+        return self.x + self.marker_offset_m * math.cos(self.yaw)
 
     @property
     def marker_y(self) -> float:
-        return self.y + self.MARKER_OFFSET_M * math.sin(self.yaw)
+        return self.y + self.marker_offset_m * math.sin(self.yaw)
 
 
 @dataclass
@@ -138,10 +180,16 @@ def gcs_standoff_m(gcs_pose: Pose, site: SiteLayout, roi: dict[str, Any]) -> flo
     return round(math.hypot(dx, dy), 1)
 
 
+def new_seed() -> int:
+    """A fresh layout seed, for a run that should not be predictable."""
+    return secrets.randbelow(2 ** 31)
+
+
 def place_points(roi: dict[str, Any], count: int, seed: int, *,
                  min_tree_m: float = 3.0, min_self_m: float = 8.0,
                  edge_margin_m: float = 5.0,
                  avoid: Sequence[tuple[Sequence[Sequence[float]], float]] = (),
+                 accept: Callable[[float, float, float], bool] | None = None,
                  explicit: list[list[float]] | None = None,
                  attempts: int = 500, label: str = "point") -> list[list[float]]:
     """Deterministic, area-uniform rejection sampling inside the mission extent.
@@ -149,6 +197,8 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
     ``edge_margin_m`` keeps points off the boundary posts.  ``avoid`` is a sequence
     of ``(points, min_distance)`` pairs, so one pass can keep clear of fires,
     casualties and already-placed ROIs without three near-copies of this loop.
+    ``accept(x, y, yaw)`` is an extra test run last, so ``True`` means the point is
+    placed.
     Returns ``[x, y, yaw]`` triples; same seed, same layout, every run.
 
     Without a fire clearance a casualty can land exactly on a fire marker, since
@@ -167,7 +217,8 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
     placed: list[list[float]] = []
     for _ in range(count):
         for _attempt in range(attempts):
-            x, y = rng.uniform(xmin, xmax), rng.uniform(ymin, ymax)
+            x, y = round(rng.uniform(xmin, xmax), 2), round(rng.uniform(ymin, ymax), 2)
+            yaw = round(rng.uniform(0, 2 * math.pi), 3)
             if any(math.hypot(x - tx, y - ty) < min_tree_m for tx, ty in trees):
                 continue
             if any(math.hypot(x - ax, y - ay) < keep_out
@@ -175,7 +226,9 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
                 continue
             if any(math.hypot(x - px, y - py) < min_self_m for px, py, _ in placed):
                 continue
-            placed.append([round(x, 2), round(y, 2), round(rng.uniform(0, 2 * math.pi), 3)])
+            if accept is not None and not accept(x, y, yaw):
+                continue
+            placed.append([x, y, yaw])
             break
         else:
             raise RuntimeError(
@@ -192,24 +245,54 @@ def place_casualties(roi: dict[str, Any], spec: TargetSpec,
                         explicit=spec.casualty_positions, label="casualty")
 
 
+ROI_MIN_SEPARATION_M = 15.0      # between props, and between plates
+
+
 def place_rois(roi: dict[str, Any], spec: TargetSpec,
                fires: list[list[float]] | None = None,
                casualties: list[list[float]] | None = None) -> list[RoiPlacement]:
     """Search-and-rescue sites: clear of trunks, fires, casualties and each other.
 
-    The trunk clearance is larger than a casualty's because an ROI carries an ArUco
-    plate that has to be *seen*: under a canopy it never is. Separation between ROIs
-    is larger too, so one camera frame cannot contain two markers and a detection can
-    be attributed to a single site.
+    The plate, not just the prop, is what has to be *seen*, so the canopy clearance
+    is checked at the plate: it sits metres out along the prop's heading, and an
+    oak's canopy is 5 m in radius. The plate must also stay inside the search area.
     """
-    points = place_points(roi, spec.roi_count, spec.roi_seed,
-                          min_tree_m=spec.roi_min_tree_m, min_self_m=15.0,
-                          avoid=[(fires or [], 8.0), (casualties or [], 8.0)],
-                          explicit=spec.roi_positions, attempts=2000, label="roi")
+    if spec.roi_count > 0 and spec.roi_seed is None and not spec.roi_positions:
+        raise ValueError("roi_seed is unresolved; draw one with new_seed() first")
     types = tuple(spec.roi_types) or DEFAULT_ROI_TYPES
+    trees = [tuple(t) for t in roi.get("trees", [])]
+    xmin, xmax, ymin, ymax = mission_extent(roi)
+    half = spec.roi_marker_size_m / 2.0
+    edge = 5.0
+    plates: list[tuple[float, float]] = []
+
+    def plate_fits(x: float, y: float, yaw: float) -> bool:
+        offset = marker_offset_m(types[len(plates) % len(types)], spec.roi_marker_size_m)
+        mx, my = x + offset * math.cos(yaw), y + offset * math.sin(yaw)
+        if not (xmin + edge + half <= mx <= xmax - edge - half
+                and ymin + edge + half <= my <= ymax - edge - half):
+            return False
+        if any(math.hypot(mx - tx, my - ty) < spec.roi_marker_min_tree_m for tx, ty in trees):
+            return False
+        if any(math.hypot(mx - px, my - py) < ROI_MIN_SEPARATION_M for px, py in plates):
+            return False
+        plates.append((mx, my))
+        return True
+
+    points = place_points(roi, spec.roi_count, spec.roi_seed or 0,
+                          min_tree_m=spec.roi_min_tree_m, min_self_m=ROI_MIN_SEPARATION_M,
+                          edge_margin_m=edge,
+                          avoid=[(fires or [], 8.0), (casualties or [], 8.0)],
+                          accept=None if spec.roi_positions else plate_fits,
+                          explicit=spec.roi_positions, attempts=5000, label="roi")
+    sites = list(range(len(points)))
+    random.Random(f"sites-{spec.roi_seed}").shuffle(sites)
     return [RoiPlacement(id=i, type=types[i % len(types)],
                          aruco_id=spec.roi_first_marker_id + i,
-                         x=point[0], y=point[1], yaw=point[2])
+                         x=point[0], y=point[1], yaw=point[2],
+                         marker_offset_m=marker_offset_m(types[i % len(types)],
+                                                         spec.roi_marker_size_m),
+                         site=sites[i])
             for i, point in enumerate(points)]
 
 
@@ -239,7 +322,8 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
 
     rois = place_rois(roi, spec.targets, fires, casualties) if roi else []
     rois_sdf = env.get_template("rois.sdf.j2").render(
-        rois=rois, marker_size_m=spec.targets.roi_marker_size_m,
+        rois=sorted(rois, key=lambda r: r.site), marker_z=MARKER_Z_M,
+        marker_size_m=spec.targets.roi_marker_size_m,
         marker_dict=spec.targets.roi_marker_dict) if rois else ""
 
     world_sdf = env.get_template("base_world.sdf.j2").render(

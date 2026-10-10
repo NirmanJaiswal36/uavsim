@@ -41,6 +41,13 @@ def resolve_path(value: str | Path) -> Path:
     raise FileNotFoundError(f"no scenario at {value!r}; looked in {SCENARIOS_DIR}")
 
 
+def _seed(value: Any) -> int | None:
+    """A fixed layout seed, or None for "a fresh one every run" (absent or 'random')."""
+    if value is None or value == "random":
+        return None
+    return int(value)
+
+
 def load(path: str | Path, registry: Registry | None = None) -> Scenario:
     path = resolve_path(path)
     data = yaml.safe_load(path.read_text()) or {}
@@ -65,12 +72,13 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         casualty_seed=int(casualties.get("seed", 0)),
         casualty_positions=casualties.get("positions"),
         roi_count=int(rois.get("count", 0)),
-        roi_seed=int(rois.get("seed", 0)),
+        roi_seed=_seed(rois.get("seed")),
         roi_types=tuple(rois.get("types") or DEFAULT_ROI_TYPES),
         roi_marker_dict=rois.get("marker_dict", "4x4_50"),
         roi_marker_size_m=float(rois.get("marker_size_m", 2.0)),
         roi_first_marker_id=int(rois.get("first_marker_id", 0)),
         roi_min_tree_m=float(rois.get("min_tree_m", 6.0)),
+        roi_marker_min_tree_m=float(rois.get("marker_min_tree_m", 7.5)),
         roi_positions=rois.get("positions"),
     )
 

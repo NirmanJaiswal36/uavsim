@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import math
 import re
 import sys
@@ -20,8 +21,9 @@ from uavsim.allocator import FleetRequest, allocate              # noqa: E402
 from uavsim.registry import Registry                             # noqa: E402
 from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, compose  # noqa: E402
 from uavsim.world import DEFAULT_ROI_TYPES, camera_eye_and_target  # noqa: E402
-from uavsim.world import (TargetSpec, WorldSpec, build, enu_to_geo,  # noqa: E402
-                          gcs_standoff_m, load_roi, place_casualties, place_rois)
+from uavsim.world import (PROP_FOOTPRINTS, TargetSpec, WorldSpec, build,  # noqa: E402
+                          enu_to_geo, gcs_standoff_m, load_roi, marker_offset_m,
+                          place_casualties, place_rois)
 
 
 def _inside(roi, x, y) -> bool:
@@ -37,7 +39,7 @@ def registry() -> Registry:
 @pytest.fixture(scope="module")
 def built_with_rois(tmp_path_factory):
     spec = WorldSpec(name="roi_world",
-                     targets=TargetSpec(fires=False, roi_count=8, roi_seed=17))
+                     targets=TargetSpec(fires=False, roi_count=10, roi_seed=17))
     return build(spec, tmp_path_factory.mktemp("roi_worlds"))
 
 
@@ -169,7 +171,7 @@ def test_manifest_reports_everything_a_framework_needs(registry, built):
     assert data["roi"]["size_m"] == [500.0, 500.0]
     assert data["roi"]["mission_extent_enu"] == [-250.0, 250.0, -250.0, 250.0]
     assert len(data["roi"]["boundary_geo"]) == 4
-    assert len(data["targets"]["fires"]) == 40
+    assert "fires" not in data["targets"] and "casualties" not in data["targets"]
     assert len(data["vehicles"]) == 3
     for vehicle in data["vehicles"]:
         assert vehicle["endpoints"]
@@ -231,10 +233,80 @@ def test_rois_are_placed_clear_of_trunks_fires_and_each_other():
 
 
 def test_the_roi_marker_sits_beside_the_prop_not_under_it():
-    placed = place_rois(load_roi("roi_forest"), TargetSpec(roi_count=8, roi_seed=17))
+    placed = place_rois(load_roi("roi_forest"), TargetSpec(roi_count=10, roi_seed=17))
     for r in placed:
+        assert r.marker_offset_m == marker_offset_m(r.type, 2.0)
         assert math.hypot(r.marker_x - r.x, r.marker_y - r.y) \
-            == pytest.approx(r.MARKER_OFFSET_M)
+            == pytest.approx(r.marker_offset_m)
+
+
+def test_marker_offsets_clear_every_prop_footprint():
+    """The wreckage's 3.2 m scorch disc used to sit under a plate 3 m out, coplanar
+    with it -- the plate flickered in and out. Every plate, at any relative rotation,
+    must now clear its own prop's footprint."""
+    assert set(PROP_FOOTPRINTS) == set(DEFAULT_ROI_TYPES)
+    for roi_type in DEFAULT_ROI_TYPES:
+        offset = marker_offset_m(roi_type, 2.0)
+        for cx, cy, r in PROP_FOOTPRINTS[roi_type]:
+            # the plate is inside a circle of radius sqrt(2) around its centre
+            assert math.hypot(offset - cx, cy) >= r + math.sqrt(2.0)
+    assert marker_offset_m("wreckage", 2.0) > 3.2 + math.sqrt(2.0)
+
+
+def _plate_points(r, size_m: float = 2.0, n: int = 5):
+    """A grid over the plate (axis-aligned in the world), in world coordinates."""
+    h = size_m / 2.0
+    steps = [-h + size_m * i / (n - 1) for i in range(n)]
+    return [(r.marker_x + dx, r.marker_y + dy) for dx in steps for dy in steps]
+
+
+def _in_footprint(prop, x: float, y: float) -> bool:
+    c, s_ = math.cos(-prop.yaw), math.sin(-prop.yaw)
+    lx = c * (x - prop.x) - s_ * (y - prop.y)
+    ly = s_ * (x - prop.x) + c * (y - prop.y)
+    return any(math.hypot(lx - cx, ly - cy) < r for cx, cy, r in PROP_FOOTPRINTS[prop.type])
+
+
+def test_ten_visible_rois_place_for_any_seed():
+    """Every run draws a fresh seed, so the invariants have to hold for all of them:
+    the plate out from under every canopy and every prop, inside the search area,
+    and apart from every other plate."""
+    roi = load_roi("roi_forest")
+    xmin, xmax, ymin, ymax = roi["mission_extent"]
+    trees = roi["trees"]
+    for seed in range(500):
+        placed = place_rois(roi, TargetSpec(roi_count=10, roi_seed=seed))
+        assert len(placed) == 10
+        assert sorted(r.aruco_id for r in placed) == list(range(10))
+        assert sorted(r.site for r in placed) == list(range(10))
+        for r in placed:
+            assert xmin + 6 <= r.marker_x <= xmax - 6 and ymin + 6 <= r.marker_y <= ymax - 6
+            assert all(math.hypot(r.marker_x - tx, r.marker_y - ty) >= 7.5
+                       for tx, ty in trees), (seed, r)
+            for prop in placed:
+                assert not any(_in_footprint(prop, x, y) for x, y in _plate_points(r)), \
+                    (seed, r, prop)
+        for a, b in itertools.combinations(placed, 2):
+            assert math.hypot(a.marker_x - b.marker_x, a.marker_y - b.marker_y) >= 15.0
+            assert math.hypot(a.x - b.x, a.y - b.y) >= 15.0
+
+
+def test_ten_rois_are_two_of_each_type():
+    placed = place_rois(load_roi("roi_forest"), TargetSpec(roi_count=10, roi_seed=3))
+    types = [r.type for r in placed]
+    assert all(types.count(t) == 2 for t in DEFAULT_ROI_TYPES)
+
+
+def test_different_seeds_give_different_layouts():
+    roi = load_roi("roi_forest")
+    a = place_rois(roi, TargetSpec(roi_count=10, roi_seed=1))
+    b = place_rois(roi, TargetSpec(roi_count=10, roi_seed=2))
+    assert [(r.x, r.y) for r in a] != [(r.x, r.y) for r in b]
+
+
+def test_an_unresolved_seed_is_refused():
+    with pytest.raises(ValueError):
+        place_rois(load_roi("roi_forest"), TargetSpec(roi_count=10, roi_seed=None))
 
 
 def test_roi_placement_is_deterministic():
@@ -254,18 +326,46 @@ def test_rois_add_no_plane_and_no_fuel_model_to_the_world(built_with_rois):
     text = built_with_rois.info.sdf_path.read_text()
     stripped = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     assert stripped.count("<plane>") == 1
-    assert len(re.findall(r'<model name="roi_\d+_', text)) == 8
-    for marker_id in range(8):
+    assert len(re.findall(r'<model name="site_\d+">', text)) == 10
+    for marker_id in range(10):
         assert f"model://aruco_marker_{marker_id}" in text
     trees = built_with_rois.roi["tree_count"]
     assert text.count("fuel.gazebosim.org") == 4 * trees   # 2 meshes + 2 textures per tree, nothing new
 
 
-def test_the_manifest_carries_roi_and_marker_ground_truth(built_with_rois):
+def test_entity_names_do_not_give_the_answer_away(built_with_rois):
+    """gz lists entity names to anyone who asks, so they must not say which site
+    holds which marker id or prop type."""
+    text = built_with_rois.info.sdf_path.read_text()
+    names = re.findall(r'<model name="(site_[^"]*)"', text) \
+        + re.findall(r"<name>(site_[^<]*)</name>", text)
+    assert len(names) == 20
+    for name in names:
+        assert re.fullmatch(r"site_\d+(_plate)?", name)
+    assert not re.search(r"roi_\d|aruco_\d", re.sub(r"<!--.*?-->", "", text, flags=re.S))
+    # and the shuffle really is one: site k is not simply roi k
+    assert [r.site for r in built_with_rois.rois] != list(range(10))
+
+
+def test_the_manifest_does_not_publish_where_the_targets_are(built_with_rois):
     data = manifest_mod.build(built_with_rois, [], {})
-    rois = data["targets"]["rois"]
-    assert len(rois) == 8
-    assert {r["marker"]["aruco_id"] for r in rois} == set(range(8))
+    targets = data["targets"]
+    assert targets["roi_count"] == 10
+    assert targets["marker"] == {"dictionary": "4x4_50", "size_m": 2.0,
+                                 "ids": list(range(10)),
+                                 "normal": "+Z (horizontal, faces a nadir camera)"}
+    text = json.dumps(data)
+    for r in built_with_rois.rois:
+        assert f"{r.x}" not in text and f"{round(r.marker_x, 2)}" not in text
+    assert "roi_seed" not in text and "rois" not in targets
+
+
+def test_the_ground_truth_carries_roi_and_marker_positions(built_with_rois):
+    data = manifest_mod.ground_truth(built_with_rois)
+    assert data["roi_seed"] == 17
+    rois = data["rois"]
+    assert len(rois) == 10
+    assert {r["marker"]["aruco_id"] for r in rois} == set(range(10))
     for r in rois:
         assert r["type"] in DEFAULT_ROI_TYPES
         assert r["id"] == f"roi_{r['index']}"

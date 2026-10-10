@@ -1,9 +1,12 @@
 """The run manifest: the contract between this environment and a user's framework.
 
 Everything a mission planner needs is here -- which vehicles exist, what they can
-do, where to reach them, where the GCS and the ROI are in both ENU and WGS84, and
-the ground-truth positions of the targets -- so that nobody has to parse SDF or
+do, where to reach them, where the GCS and the search area are in both ENU and
+WGS84, and what the markers to look for are -- so that nobody has to parse SDF or
 guess port numbers.
+
+What is *not* here is where the targets are: finding them is the challenge. Their
+ground truth goes to a separate judge-only file, built by ``ground_truth()``.
 """
 
 from __future__ import annotations
@@ -16,7 +19,9 @@ from typing import Any
 from .adapter import Instance
 from .world import BuiltWorld, RoiPlacement, enu_to_geo, gcs_standoff_m, mission_extent
 
-SCHEMA_VERSION = 3   # 2 added targets.rois; 3 made the ROI a square, dropped the runway
+# 2 added targets.rois; 3 made the ROI a square, dropped the runway; 4 moved every
+# target position out to ground_truth()
+SCHEMA_VERSION = 4
 
 
 def build(world: BuiltWorld, instances: list[Instance],
@@ -55,9 +60,14 @@ def build(world: BuiltWorld, instances: list[Instance],
             "pads": world.site.pad_capacity,
         },
         "targets": {
-            "fires": [_target(f[0], f[1], origin) for f in world.fires],
-            "casualties": [_target(c[0], c[1], origin) for c in world.casualties],
-            "rois": [_roi(r, origin, world.targets) for r in world.rois],
+            "note": "positions are not published; finding the sites is the task",
+            "roi_count": len(world.rois),
+            "marker": {
+                "dictionary": world.targets.roi_marker_dict,
+                "size_m": world.targets.roi_marker_size_m,
+                "ids": sorted(r.aruco_id for r in world.rois),
+                "normal": "+Z (horizontal, faces a nadir camera)",
+            },
         },
         "vehicles": [_vehicle(inst, world, endpoints.get(inst.name, {})) for inst in instances],
         "ros2": {
@@ -65,6 +75,25 @@ def build(world: BuiltWorld, instances: list[Instance],
             "clock": f"/world/{world.info.name}/clock",
         },
         "run_dir": str(run_dir) if run_dir else None,
+    }
+
+
+def ground_truth(world: BuiltWorld) -> dict[str, Any]:
+    """Where everything a team is meant to find actually is. For the judges only.
+
+    Carries the layout seed too, so ``uavsim up --seed`` can replay the run.
+    """
+    origin = {"latitude_deg": world.info.latitude_deg,
+              "longitude_deg": world.info.longitude_deg,
+              "elevation_m": world.info.elevation_m}
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "world": world.info.name,
+        "origin": origin,
+        "roi_seed": world.targets.roi_seed,
+        "rois": [_roi(r, origin, world.targets) for r in world.rois],
+        "fires": [_target(f[0], f[1], origin) for f in world.fires],
+        "casualties": [_target(c[0], c[1], origin) for c in world.casualties],
     }
 
 
@@ -86,6 +115,7 @@ def _roi(roi: RoiPlacement, origin: dict[str, float], spec: Any) -> dict[str, An
     return {
         "id": f"roi_{roi.id}",
         "index": roi.id,
+        "entity": f"site_{roi.site}",
         "type": roi.type,
         "enu": [roi.x, roi.y],
         "yaw_rad": roi.yaw,
@@ -95,6 +125,7 @@ def _roi(roi: RoiPlacement, origin: dict[str, float], spec: Any) -> dict[str, An
             "aruco_id": roi.aruco_id,
             "size_m": spec.roi_marker_size_m,
             "model": f"aruco_marker_{roi.aruco_id}",
+            "entity": f"site_{roi.site}_plate",
             "enu": [round(roi.marker_x, 2), round(roi.marker_y, 2)],
             "geo": [round(marker_lat, 8), round(marker_lon, 8)],
             "normal": "+Z (horizontal, faces a nadir camera)",

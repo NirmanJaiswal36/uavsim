@@ -103,7 +103,7 @@ def cmd_world(args) -> int:
 
 def cmd_up(args) -> int:
     scn = scenario_mod.load(args.scenario)
-    plan = orchestrator.plan(scn, check_environment=not args.no_check)
+    plan = orchestrator.plan(scn, check_environment=not args.no_check, roi_seed=args.seed)
     if plan.problems and not args.no_check:
         print("environment is not ready:", file=sys.stderr)
         for problem in plan.problems:
@@ -129,7 +129,7 @@ def cmd_spawn(args) -> int:
     from uavsim.allocator import FleetRequest
 
     scn = scenario_mod.load(args.scenario)
-    plan = orchestrator.plan(scn, check_environment=False)
+    plan = orchestrator.plan(scn, check_environment=False, attach=True)
     result = orchestrator.add(plan, [FleetRequest(args.type, args.count)],
                               wait_ready=not args.no_wait)
     for inst in result["instances"]:
@@ -143,7 +143,7 @@ def cmd_spawn(args) -> int:
 
 def cmd_down(args) -> int:
     scn = scenario_mod.load(args.scenario)
-    plan = orchestrator.plan(scn, check_environment=False)
+    plan = orchestrator.plan(scn, check_environment=False, attach=True)
     for line in orchestrator.down(plan, stop_gazebo=args.gazebo):
         print(f"  {line}")
     return 0
@@ -151,7 +151,7 @@ def cmd_down(args) -> int:
 
 def cmd_verify(args) -> int:
     scn = scenario_mod.load(args.scenario)
-    plan = orchestrator.plan(scn, check_environment=False)
+    plan = orchestrator.plan(scn, check_environment=False, attach=args.live)
     return verify_mod.run(plan, live=args.live)
 
 
@@ -189,6 +189,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-wait", action="store_true", help="do not wait for autopilot heartbeats")
     p.add_argument("--no-bridge", action="store_true", help="write the bridge config but do not run it")
     p.add_argument("--no-check", action="store_true", help="skip backend preflight checks")
+    p.add_argument("--seed", type=int, default=None,
+                   help="replay the ROI layout of an earlier run (its seed is in that "
+                        "run's ground_truth.json); default: a fresh layout")
     p.set_defaults(func=cmd_up)
 
     p = sub.add_parser("spawn", help="add more vehicles to a running scenario")

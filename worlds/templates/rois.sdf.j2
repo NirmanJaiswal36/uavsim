@@ -175,20 +175,24 @@
 {% endmacro %}
 {% set props = {'survivor': survivor, 'wreckage': wreckage, 'tent': tent,
                 'crate': crate, 'signal_fire': signal_fire} %}
+{# Entity names are neutral ("site_<k>", k a seeded shuffle) and the sites are listed
+   in k order, so neither gz's entity list nor the SDF order says which site carries
+   which marker id or prop type. #}
 {% for r in rois %}
-    <model name="roi_{{ r.id }}_{{ r.type }}">
+    <model name="site_{{ r.site }}">
       <static>true</static>
       <pose>{{ '%.2f'|format(r.x) }} {{ '%.2f'|format(r.y) }} 0 0 0 {{ '%.3f'|format(r.yaw) }}</pose>
       <link name="link">
 {{ props[r.type]() }}
       </link>
     </model>
-    {# the plate is offset along the prop's heading so the prop cannot occlude it, and
-       is always axis-aligned and horizontal: a nadir detector's pose output is then
-       trivially interpretable, and z=0.02 clears the grass planes at z=0 #}
+    {# the plate is offset along the prop's heading far enough to clear its footprint
+       (uavsim/world.py: PROP_FOOTPRINTS, marker_offset_m), and is always axis-aligned
+       and horizontal: a nadir detector's pose output is then trivially interpretable.
+       marker_z sits above every ground-hugging visual, so nothing z-fights the plate #}
     <include>
       <uri>model://aruco_marker_{{ r.aruco_id }}</uri>
-      <name>roi_{{ r.id }}_aruco_{{ r.aruco_id }}</name>
-      <pose>{{ '%.2f'|format(r.marker_x) }} {{ '%.2f'|format(r.marker_y) }} 0.02 0 0 0</pose>
+      <name>site_{{ r.site }}_plate</name>
+      <pose>{{ '%.2f'|format(r.marker_x) }} {{ '%.2f'|format(r.marker_y) }} {{ '%.2f'|format(marker_z) }} 0 0 0</pose>
     </include>
 {% endfor %}
