@@ -72,7 +72,7 @@ class Run:
 
     world: str
     origin: tuple[float, float, float]      # lat, lon, elevation -- the ROI centre
-    mission_radius_m: float
+    mission_extent: tuple[float, float, float, float]   # xmin, xmax, ymin, ymax (ENU)
     vehicles: tuple[Vehicle, ...]
     rois: tuple[Roi, ...]
     manifest_path: Path
@@ -139,7 +139,8 @@ def parse(data: dict[str, Any], path: Path | None = None) -> Run:
         origin=(float(origin.get("latitude_deg", 0.0)),
                 float(origin.get("longitude_deg", 0.0)),
                 float(origin.get("elevation_m", 0.0))),
-        mission_radius_m=float(roi.get("mission_radius_m", 0.0)),
+        mission_extent=tuple(float(v) for v in               # type: ignore[arg-type]
+                             (roi.get("mission_extent_enu") or (0.0, 0.0, 0.0, 0.0))),
         vehicles=tuple(vehicles),
         rois=tuple(rois),
         manifest_path=path or Path(),

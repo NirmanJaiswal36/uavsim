@@ -68,34 +68,33 @@ registry/airframes/<id>/
 `airframe.yaml` describes the physical aircraft:
 
 ```yaml
-id: zephyr
-class: fixed_wing          # multirotor | fixed_wing | vtol
-launch: runway             # runway | pad
-model_uri: model://zephyr
-base_link: zephyr::wing
-imu_sensor: zephyr::imu_link::imu_sensor
+id: iris
+class: multirotor          # the only class: this environment flies quadcopters
+model_uri: model://iris_with_standoffs
+base_link: iris_with_standoffs::base_link
+imu_sensor: iris_with_standoffs::imu_link::imu_sensor
 
 geometry:
-  footprint_radius_m: 1.2
-  spawn_z_m: 0.2
+  footprint_radius_m: 0.35
+  spawn_z_m: 0.195
 
 performance:
   mass_kg: 1.5
-  cruise_mps: 18.0
-  max_mps: 30.0
-  endurance_min: 35.0
-  max_payload_kg: 0.2
+  cruise_mps: 10.0
+  max_mps: 15.0
+  endurance_min: 18.0
+  max_payload_kg: 0.4
 
 bindings:
   ardupilot:
     overlay: bindings/ardupilot.sdf.j2
-    vars: {vehicle: ArduPlane, frame: gazebo-zephyr}
+    vars: {vehicle: ArduCopter, frame: gazebo-iris}
 ```
 
-`class` and `launch` drive allocation: fixed-wing vehicles get runway slots, everything
-else gets landing pads. `footprint_radius_m` is checked against the scenario's pad
-spacing, so an aircraft that would overlap its neighbour is an error rather than a
-collision at spawn.
+Every vehicle takes off from a landing pad at the GCS; there is no runway, and the
+schema rejects any `class` other than `multirotor`. `footprint_radius_m` is checked
+against the scenario's pad spacing, so an aircraft that would overlap its neighbour is
+an error rather than a collision at spawn.
 
 The binding template is where the aircraft meets the autopilot: the `ArduPilotPlugin` or
 PX4 plugin block, the lift-drag elements, and the `<control>` channel mapping from servo
@@ -146,15 +145,20 @@ committed — do not hand-edit them, `--check` will revert you.
 `worlds/fragments/roi_forest.{sdf,yaml}` are generated. Change the numbers, not the SDF:
 
 ```bash
-python3 tools/gen_roi_forest.py --mission-radius 85 --scenery-radius 148 \
-        --oak 120 --pine 80 --fires 40 --seed 20251007
+python3 tools/gen_roi_forest.py --size 500 --oak 436 --pine 290 \
+        --fires 40 --seed 20251007
 ```
 
-Keep the counts proportional to the *area* if you want the density unchanged — the
-generator's docstring has the arithmetic. If you change `--mission-radius`, also update
-`DEFAULT_GCS_POSE` in `uavsim/site.py`: the GCS standoff is derived from the mission
-radius so that 200 m of open ground remains between the runway end and the boundary, and
-the arithmetic is in that module's docstring.
+The forest is a square of side `--size`, centred on the origin. Keep the tree counts
+proportional to the *area* if you want the density unchanged (2.9 trees per 1000 m²).
+A 1000 m square is `--size 1000 --oak 1742 --pine 1162`, but measure first: it roughly
+halves the real-time factor once cameras are rendering (the generator's docstring has
+the numbers).
+
+If you change `--size`, also update `DEFAULT_GCS_POSE` in `uavsim/site.py` and
+`gcs_pose` in the scenarios: the GCS sits so that 100 m of open ground remains between
+the apron's front edge and the forest edge, and the arithmetic is in that module's
+docstring. `uavsim plan` prints the resulting standoff.
 
 ## Checking your work
 

@@ -64,7 +64,7 @@
     <!-- THE ONLY plane collision in this world. A <plane> collision is an
          infinite half-space in DART; a second one makes the ground-contact LCP
          singular and freezes the physics step. Everything else that looks like
-         ground (apron, runway, grass patches) is a box or a visual. -->
+         ground (apron, grass tiles) is a box or a visual. -->
     <model name="ground_plane">
       <static>true</static>
       <link name="link">
@@ -74,7 +74,7 @@
         </collision>
 {% if terrain %}
         <!-- Ground under the GCS and the transit corridor ONLY. It stops short of
-             the forest: the grass patches there are planes at z=0, and any other
+             the forest: the grass tiles there have their top face at z=0, and any other
              surface at that height z-fights with them (patches flicker and vanish
              as you zoom). Its top is also kept below z=0 for the same reason. -->
         <visual name="terrain">

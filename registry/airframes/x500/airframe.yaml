@@ -1,7 +1,6 @@
 id: x500
 description: Holybro X500 quadrotor, PX4 reference airframe (models come from the PX4 tree).
 class: multirotor
-launch: pad
 
 model_uri: model://x500_base
 base_link: base_link

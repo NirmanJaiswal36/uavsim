@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -23,16 +24,16 @@ from uavsim import orchestrator, scenario as scenario_mod, verify as verify_mod
 from uavsim.allocator import AllocationError
 from uavsim.registry import Registry, RegistryError
 from uavsim.sdf import RenderError
+from uavsim.world import gcs_standoff_m
 
 
 def _fleet_table(plan) -> str:
-    rows = [("NAME", "TYPE", "BACKEND", "SYSID", "LAUNCH", "SPAWN X,Y", "ENDPOINT")]
+    rows = [("NAME", "TYPE", "BACKEND", "SYSID", "SPAWN X,Y", "ENDPOINT")]
     for inst in plan.instances:
         adapter = plan.adapters[inst.vehicle.backend.id]
         ep = adapter.endpoints(inst)
         endpoint = ep.get("mavlink") or ep.get("mavlink_udp") or ep.get("dds_namespace") or "-"
         rows.append((inst.name, inst.vehicle.id, inst.vehicle.backend.id, str(inst.sysid),
-                     inst.vehicle.airframe.launch,
                      f"{inst.pose.x:.1f},{inst.pose.y:.1f}", str(endpoint)))
     widths = [max(len(r[i]) for r in rows) for i in range(len(rows[0]))]
     return "\n".join("  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip()
@@ -53,7 +54,7 @@ def cmd_list(args) -> int:
         if what == "vehicles":
             extra = f"  [{item.airframe} + {item.backend}]"
         elif what == "airframes":
-            extra = f"  [{item.cls}, {item.launch}, bindings: {', '.join(sorted(item.bindings))}]"
+            extra = f"  [{item.cls}, bindings: {', '.join(sorted(item.bindings))}]"
         desc = (item.description or "").strip().splitlines()
         print(f"{key}{extra}")
         if desc:
@@ -68,16 +69,14 @@ def cmd_plan(args) -> int:
     print(f"world      {plan.world.info.sdf_path}  (origin "
           f"{plan.world.info.latitude_deg}, {plan.world.info.longitude_deg}, "
           f"{plan.world.info.elevation_m} m)")
-    print(f"roi        {plan.world.roi.get('id')}  radius "
-          f"{plan.world.roi.get('mission_radius_m')} m, "
+    size = plan.world.roi.get("size_m") or ["?", "?"]
+    print(f"roi        {plan.world.roi.get('id')}  {size[0]} x {size[1]} m, "
           f"{len(plan.world.fires)} fires, {len(plan.world.casualties)} casualties, "
           f"{len(plan.world.rois)} rois")
-    site = plan.world.site
-    runway_end = plan.world.site_pose.x + site.runway_x0_m + site.runway_length_m
-    open_ground = -float(plan.world.roi.get("mission_radius_m", 0.0)) - runway_end
+    standoff = gcs_standoff_m(plan.world.site_pose, plan.world.site, plan.world.roi)
     print(f"gcs        {plan.world.site_pose.as_list()[:2]}  "
-          f"{abs(plan.world.site_pose.x):.0f} m to the ROI centre, "
-          f"{open_ground:.0f} m of open ground from the runway end to the boundary")
+          f"{math.hypot(plan.world.site_pose.x, plan.world.site_pose.y):.0f} m to the ROI centre, "
+          f"{standoff if standoff is not None else '?'} m of open ground to the forest edge")
     print(f"fleet      {len(plan.instances)} vehicles\n")
     print(_fleet_table(plan))
     if args.sdf:

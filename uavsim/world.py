@@ -2,7 +2,7 @@
 
 The world deliberately contains no vehicles.  That is the whole point of the
 split: the same world file serves any fleet, and changing "three Iris" to "six
-Iris and a VTOL" never touches SDF.
+Iris and two X500s" never touches SDF.
 """
 
 from __future__ import annotations
@@ -117,35 +117,57 @@ def enu_to_geo(x: float, y: float, origin: dict[str, float]) -> tuple[float, flo
             origin["longitude_deg"] + math.degrees(dlon))
 
 
+def mission_extent(roi: dict[str, Any]) -> tuple[float, float, float, float]:
+    """The search area as ``(xmin, xmax, ymin, ymax)`` in world ENU."""
+    xmin, xmax, ymin, ymax = (float(v) for v in roi["mission_extent"])
+    return xmin, xmax, ymin, ymax
+
+
+def gcs_standoff_m(gcs_pose: Pose, site: SiteLayout, roi: dict[str, Any]) -> float | None:
+    """Open ground between the GCS's forest-facing edge and the mission extent.
+
+    Measured from the centre of the apron's front edge, which is what faces the
+    forest when the site points at it (``uavsim/site.py`` has the arithmetic).
+    """
+    if not roi:
+        return None
+    front = compose(gcs_pose, Pose(x=site.front_x_m, y=site.apron_y_m))
+    xmin, xmax, ymin, ymax = mission_extent(roi)
+    dx = max(xmin - front.x, 0.0, front.x - xmax)
+    dy = max(ymin - front.y, 0.0, front.y - ymax)
+    return round(math.hypot(dx, dy), 1)
+
+
 def place_points(roi: dict[str, Any], count: int, seed: int, *,
                  min_tree_m: float = 3.0, min_self_m: float = 8.0,
+                 edge_margin_m: float = 5.0,
                  avoid: Sequence[tuple[Sequence[Sequence[float]], float]] = (),
                  explicit: list[list[float]] | None = None,
                  attempts: int = 500, label: str = "point") -> list[list[float]]:
-    """Deterministic ``r = R*sqrt(U)`` rejection sampling inside the mission radius.
+    """Deterministic, area-uniform rejection sampling inside the mission extent.
 
-    ``avoid`` is a sequence of ``(points, min_distance)`` pairs, so one pass can keep
-    clear of fires, casualties and already-placed ROIs without three near-copies of
-    this loop. Returns ``[x, y, yaw]`` triples; same seed, same layout, every run.
+    ``edge_margin_m`` keeps points off the boundary posts.  ``avoid`` is a sequence
+    of ``(points, min_distance)`` pairs, so one pass can keep clear of fires,
+    casualties and already-placed ROIs without three near-copies of this loop.
+    Returns ``[x, y, yaw]`` triples; same seed, same layout, every run.
 
-    The fire markers in the legacy world were themselves drawn from ``r = R*sqrt(U)``
-    with a small seed, so without a fire clearance a casualty can land exactly on one
-    (seed 42 does).
+    Without a fire clearance a casualty can land exactly on a fire marker, since
+    both are drawn uniformly over the same area.
     """
     if explicit:
         return [[p[0], p[1], p[2] if len(p) > 2 else 0.0] for p in explicit]
     if count <= 0:
         return []
 
-    radius = float(roi.get("mission_radius_m", 60.0))
+    xmin, xmax, ymin, ymax = mission_extent(roi)
+    xmin, xmax = xmin + edge_margin_m, xmax - edge_margin_m
+    ymin, ymax = ymin + edge_margin_m, ymax - edge_margin_m
     trees = [tuple(t) for t in roi.get("trees", [])]
     rng = random.Random(seed)
     placed: list[list[float]] = []
     for _ in range(count):
         for _attempt in range(attempts):
-            r = radius * math.sqrt(rng.random())
-            theta = rng.uniform(0, 2 * math.pi)
-            x, y = r * math.cos(theta), r * math.sin(theta)
+            x, y = rng.uniform(xmin, xmax), rng.uniform(ymin, ymax)
             if any(math.hypot(x - tx, y - ty) < min_tree_m for tx, ty in trees):
                 continue
             if any(math.hypot(x - ax, y - ay) < keep_out
@@ -158,13 +180,13 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
         else:
             raise RuntimeError(
                 f"could not place {label} {len(placed) + 1} of {count} inside "
-                f"{radius} m; reduce the count or the clearances")
+                f"{roi['mission_extent']}; reduce the count or the clearances")
     return placed
 
 
 def place_casualties(roi: dict[str, Any], spec: TargetSpec,
                      fires: list[list[float]] | None = None) -> list[list[float]]:
-    """Casualties: inside the mission radius, 3 m from trunks, 5 m from fires, 8 m apart."""
+    """Casualties: inside the mission extent, 3 m from trunks, 5 m from fires, 8 m apart."""
     return place_points(roi, spec.casualty_count, spec.casualty_seed,
                         min_tree_m=3.0, min_self_m=8.0, avoid=[(fires or [], 5.0)],
                         explicit=spec.casualty_positions, label="casualty")
@@ -250,12 +272,14 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
 
 
 def terrain_patch(gcs: Pose, roi: dict[str, Any], *, margin_m: float = 150.0,
-                  clearance_m: float = 10.0, depth_m: float = 0.1) -> dict[str, float] | None:
+                  clearance_m: float = 0.0, depth_m: float = 0.1) -> dict[str, float] | None:
     """Ground visual under the GCS and the corridor to the ROI, never over the ROI.
 
-    The ROI's grass patches are planes at z=0; a second surface over them
-    z-fights, which shows up as patches flickering and vanishing with zoom. So
-    the patch is clipped to end ``clearance_m`` before the ROI's ground extent.
+    The ROI's grass tiles have their top face at z=0; a second surface over them
+    z-fights, which shows up as tiles flickering and vanishing with zoom. So the
+    patch is clipped to end ``clearance_m`` before the ROI's ground extent. The
+    default is flush: the ground plane has no visual, so any gap shows the sky
+    colour as a bright strip along the forest edge.
     Returns None when the GCS is inside that extent and no clean patch exists.
     """
     xmin, xmax, ymin, ymax = roi.get("ground_extent") or [0.0, 0.0, 0.0, 0.0]
@@ -280,8 +304,8 @@ def terrain_patch(gcs: Pose, roi: dict[str, Any], *, margin_m: float = 150.0,
 
 
 # Where the GUI camera's eye sits in the site frame, as an offset from the apron
-# centre, and the height of what it looks at. Chosen so that all 24 pads and the ROI
-# boundary sit inside a conservative 60x35 degree frame -- see
+# centre, and the height of what it looks at. Chosen so that all 24 pads and the
+# forest edge sit inside a conservative 60x35 degree frame -- see
 # test_the_default_camera_frames_the_landing_pads.
 CAMERA_EYE_OFFSET_M = (-70.0, -40.0, 28.0)
 CAMERA_TARGET_Z_M = 1.5

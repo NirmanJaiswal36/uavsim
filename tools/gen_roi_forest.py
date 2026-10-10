@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Generates the forest region-of-interest scenery: roi_forest.sdf + roi_forest.yaml.
 
-Why a generator and not hand-written SDF.  The forest used to be ~2100 lines of
-hand-maintained SDF inherited from the legacy ``forest.sdf``, which meant that
-changing its size was a day of careful editing and the metadata in the YAML could
-drift out of step with the scenery it describes.  Everything here is derived from a
-handful of numbers instead, so "double the area" is one flag.
+Why a generator and not hand-written SDF.  The forest is thousands of trees, grass
+tiles and boundary posts, and the metadata in the YAML (trunk positions, extents)
+must never drift out of step with the scenery it describes.  Everything here is
+derived from a handful of numbers instead, so changing the size is one flag.
 
 Why the output is committed rather than built.  ``worlds/fragments/`` is shipped
 *data*, not an artefact (``docs/architecture.md``): ``base_world.sdf.j2`` includes
@@ -20,13 +19,26 @@ Why this lives in tools/ and not uavsim/.  ``uavsim/`` is imported by the ROS 2
 launch file and must stay dependency-light and fast to import.  An authoring tool
 that runs once per forest does not belong on the runtime import path.
 
-Density, not just extent.  Doubling the *area* means scaling the radius by sqrt(2)
-AND doubling the counts; scaling positions alone would halve the density and the
-forest would read as a different place.  The defaults below hold trees per square
-metre constant to four significant figures against the legacy 100 trees in r=104.7.
+Why one link, not one model per tree.  As separate ``<include>``d models -- the
+obvious way, and how the 200-tree forest was built -- every tile and tree becomes its
+own physics body, and every tree drags in its full canopy mesh as a collision shape.
+On one static link, with one bounding cylinder per tree for collision, the scenery
+is cheaper than the old 200-tree forest despite having 3.6x the trees.
 
-    python3 tools/gen_roi_forest.py --mission-radius 85 --scenery-radius 148 \
-            --oak 120 --pine 80 --fires 40 --seed 20251007
+Why 500 m and not 1000 m.  Measured on an RTX 3060 with four gimbal-like cameras
+(640x480, 10 Hz, subscribed so they actually render):
+
+    forest                         real-time factor   server RSS
+    legacy 200 trees, includes     1.00               2.4 GB
+    500 m square,  726 trees       1.00               1.7 GB
+    1000 m square, 2904 trees      0.43               4.9 GB
+    1000 m square, as includes     did not finish loading in 3 min, >22 GB
+
+A kilometre square at this density halves the simulation speed, so the default is
+500 m; ``--size 1000 --oak 1742 --pine 1162`` builds the larger one.
+
+    python3 tools/gen_roi_forest.py --size 500 --oak 436 --pine 290 \
+            --fires 40 --seed 20251007
 """
 
 from __future__ import annotations
@@ -41,8 +53,34 @@ from pathlib import Path
 PKG_ROOT = Path(__file__).resolve().parents[1]
 FRAGMENTS_DIR = PKG_ROOT / "worlds" / "fragments"
 
-OAK_URI = "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak Tree"
-PINE_URI = "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree"
+FUEL = "https://fuel.gazebosim.org/1.0/openrobotics/models"
+GRASS_TEXTURE = "model://grasspatch_visual/materials/textures/grass_dry.png"
+
+
+@dataclass(frozen=True)
+class TreeKind:
+    """One Fuel tree, referenced by its mesh and textures at a pinned version.
+
+    The Fuel model's own collision is its whole canopy mesh, which is what made the
+    per-tree ``<include>`` forest unloadable at this size; ``collision_*`` is a
+    bounding cylinder from the mesh extents (the DAE is in inches, scaled 0.0254).
+    """
+
+    name: str
+    files: str
+    mesh: str
+    branch_texture: str
+    collision_radius_m: float
+    collision_height_m: float
+
+    def uri(self, path: str) -> str:
+        return f"{self.files}/{path}"
+
+
+OAK = TreeKind("Oak_Tree", f"{FUEL}/oak tree/7/files", "meshes/oak_tree.dae",
+               "materials/textures/branch_diffuse.png", 5.0, 6.5)
+PINE = TreeKind("Pine_Tree", f"{FUEL}/pine tree/6/files", "meshes/pine_tree.dae",
+                "materials/textures/branch_2_diffuse.png", 1.6, 5.1)
 
 # The origin axis marker, carried over verbatim from the legacy world.  It also
 # carries the world's only navsat sensor, which the PX4 backend depends on -- do not
@@ -109,37 +147,29 @@ AXES_SDF = """\
 class ForestParams:
     """Every number the forest is derived from.
 
-    The legacy forest was r=104.7 of scenery around a 60 m mission ring, with 100
-    trees, 153 grass tiles and 36 boundary posts.  Doubling the area scales both
-    radii by sqrt(2) and the counts by 2.
+    The forest is a square centred on the world origin, and the whole square is the
+    search area: the boundary posts run round its edge and targets may be placed
+    anywhere inside it.  Tree density is the legacy forest's (100 trees in a disc of
+    r=104.7, 2.90e-3 per square metre), so a 500 m square needs ~726 trees.
     """
 
-    mission_radius_m: float = 85.0        # 60 * sqrt(2) = 84.85; (85/60)^2 = 2.007
-    scenery_radius_m: float = 148.0       # (148/104.7)^2 = 1.998
-    grass_pitch_m: float = 14.83          # 15 m tiles with 0.17 m overlap: no seams
-    grass_tile_m: float = 15.0
-    grass_offset_x_m: float = 2.71574     # the legacy grid's phase, kept so the
-    grass_offset_y_m: float = -2.80395    # texture does not shift under the trees
-    oak_inside: int = 30
-    oak_outside: int = 40
-    oak_outer_extra: int = 50
-    pine_inside: int = 40
-    pine_outside: int = 40
+    size_m: float = 500.0                 # side of the square
+    grass_tile_m: float = 15.0            # the grasspatch_visual plane
+    grass_overlap_m: float = 0.17         # tiles overlap by at least this: no seams
+    oak_count: int = 436                  # 3:2 oak:pine, as the legacy forest
+    pine_count: int = 290
     fire_count: int = 40
     fire_z_m: float = 0.40
-    boundary_arc_m: float = 10.47         # the post spacing of the legacy 60 m ring
+    edge_margin_m: float = 3.0            # trunks this far inside the edge
+    boundary_spacing_m: float = 20.0      # posts round the edge
     min_tree_spacing_m: float = 2.5
     min_fire_spacing_m: float = 5.0
     min_fire_tree_m: float = 3.0
     seed: int = 20251007
 
     @property
-    def oak_count(self) -> int:
-        return self.oak_inside + self.oak_outside + self.oak_outer_extra
-
-    @property
-    def pine_count(self) -> int:
-        return self.pine_inside + self.pine_outside
+    def half_m(self) -> float:
+        return self.size_m / 2.0
 
     @property
     def tree_count(self) -> int:
@@ -148,46 +178,50 @@ class ForestParams:
 
 # -- geometry ------------------------------------------------------------------
 
-def grass_tiles(p: ForestParams) -> list[tuple[str, float, float]]:
-    """Grass tile centres on the legacy grid, clipped to a disc.
+class _Grid:
+    """Spatial hash for the minimum-spacing checks.
 
-    Named by Chebyshev ring so all six legacy name families survive -- muscle memory
-    in the Gazebo entity tree is worth more than tidier names.
+    Placement is rejection sampling against everything already placed; with ~2900
+    trees a linear scan makes the generator (and the test that runs it) slow.
     """
-    reach = int(math.ceil(p.scenery_radius_m / p.grass_pitch_m)) + 1
-    cells: list[tuple[int, int, int, float, float]] = []
-    for i in range(-reach, reach + 1):
-        for j in range(-reach, reach + 1):
-            x = p.grass_offset_x_m + i * p.grass_pitch_m
-            y = p.grass_offset_y_m + j * p.grass_pitch_m
-            if math.hypot(x, y) <= p.scenery_radius_m:
-                cells.append((max(abs(i), abs(j)), i, j, x, y))
-    cells.sort(key=lambda c: (c[0], c[1], c[2]))
 
-    tiles: list[tuple[str, float, float]] = []
-    counter = 0
-    for ring, i, j, x, y in cells:
-        if ring == 0:
-            name = "grasspatch"
-        elif ring == 1:
-            name, counter = f"grasspatch_{counter}", counter + 1
-        elif ring == 2:
-            name, counter = f"grasspatch_ext_{counter}", counter + 1
-        elif ring == 3:
-            name = f"grasspatch_fill_{i}_{j}"
-        elif ring <= 5:
-            name = f"grasspatch_outer_{i}_{j}"
-        else:
-            name = f"grassfield_{i}_{j}"
-        tiles.append((name, x, y))
-    return tiles
+    def __init__(self, cell_m: float) -> None:
+        self.cell = cell_m
+        self.cells: dict[tuple[int, int], list[tuple[float, float]]] = {}
+
+    def _key(self, x: float, y: float) -> tuple[int, int]:
+        return int(math.floor(x / self.cell)), int(math.floor(y / self.cell))
+
+    def add(self, x: float, y: float) -> None:
+        self.cells.setdefault(self._key(x, y), []).append((x, y))
+
+    def near(self, x: float, y: float, radius_m: float) -> bool:
+        """True if any stored point is closer than ``radius_m`` (<= the cell size)."""
+        kx, ky = self._key(x, y)
+        return any(math.hypot(x - px, y - py) < radius_m
+                   for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                   for px, py in self.cells.get((kx + dx, ky + dy), ()))
+
+
+def grass_tiles(p: ForestParams) -> list[tuple[str, float, float]]:
+    """Grass tile centres on a square grid that covers the square exactly.
+
+    The pitch is stretched just enough that the outermost tiles end flush with the
+    edge, while neighbours still overlap by at least ``grass_overlap_m``.
+    """
+    step = p.grass_tile_m - p.grass_overlap_m
+    n = max(1, math.ceil((p.size_m - p.grass_overlap_m) / step))
+    pitch = (p.size_m - p.grass_tile_m) / (n - 1) if n > 1 else 0.0
+    first = -p.half_m + p.grass_tile_m / 2.0
+    return [(f"grass_{i:02d}_{j:02d}", first + i * pitch, first + j * pitch)
+            for i in range(n) for j in range(n)]
 
 
 def ground_extent(p: ForestParams, tiles: list[tuple[str, float, float]]) -> list[float]:
     """The grass bounding box: tile centres grown by half a tile.
 
     This is what ``terrain_patch()`` clips the GCS ground visual against, so it must
-    describe where the grass actually *is*, not where the scenery radius says it is.
+    describe where the grass actually *is*.
     """
     half = p.grass_tile_m / 2.0
     xs = [x for _, x, _ in tiles]
@@ -196,110 +230,105 @@ def ground_extent(p: ForestParams, tiles: list[tuple[str, float, float]]) -> lis
             round(min(ys) - half, 2), round(max(ys) + half, 2)]
 
 
+def mission_extent(p: ForestParams) -> list[float]:
+    h = round(p.half_m, 2)
+    return [-h, h, -h, h]
+
+
 def boundary_posts(p: ForestParams) -> list[tuple[str, float, float]]:
-    """Posts on the mission ring, keeping the legacy arc spacing."""
-    count = max(3, round(2.0 * math.pi * p.mission_radius_m / p.boundary_arc_m))
+    """Posts round the edge of the square, corners included, plus one at the origin."""
+    per_side = max(1, round(p.size_m / p.boundary_spacing_m))
+    h = p.half_m
     posts = [("boundary_origin", 0.0, 0.0)]
-    for k in range(count):
-        theta = 2.0 * math.pi * k / count
-        posts.append((f"boundary_{k:02d}",
-                      p.mission_radius_m * math.cos(theta),
-                      p.mission_radius_m * math.sin(theta)))
+    # walk the perimeter anticlockwise from the south-west corner
+    corners = [(-h, -h), (h, -h), (h, h), (-h, h)]
+    k = 0
+    for (x0, y0), (x1, y1) in zip(corners, corners[1:] + corners[:1]):
+        for s in range(per_side):
+            t = s / per_side
+            posts.append((f"boundary_{k:03d}", x0 + (x1 - x0) * t, y0 + (y1 - y0) * t))
+            k += 1
     return posts
 
 
-def _sample(rng: random.Random, r_inner: float, r_outer: float) -> tuple[float, float]:
-    """Area-uniform point in a disc or annulus."""
-    r = math.sqrt(rng.random() * (r_outer ** 2 - r_inner ** 2) + r_inner ** 2)
-    theta = rng.uniform(0.0, 2.0 * math.pi)
-    return r * math.cos(theta), r * math.sin(theta)
+def _sample(rng: random.Random, half_m: float) -> tuple[float, float]:
+    """Area-uniform point in the square [-half_m, half_m]^2."""
+    return rng.uniform(-half_m, half_m), rng.uniform(-half_m, half_m)
 
 
-def _place(rng: random.Random, count: int, r_inner: float, r_outer: float,
-           taken: list[tuple[float, float]], min_spacing_m: float,
-           label: str) -> list[tuple[float, float]]:
+def _place(rng: random.Random, count: int, half_m: float, grid: _Grid,
+           min_spacing_m: float, label: str) -> list[tuple[float, float]]:
     out: list[tuple[float, float]] = []
     for _ in range(count):
         for _attempt in range(2000):
-            x, y = _sample(rng, r_inner, r_outer)
-            if any(math.hypot(x - tx, y - ty) < min_spacing_m for tx, ty in taken):
+            x, y = _sample(rng, half_m)
+            if grid.near(x, y, min_spacing_m):
                 continue
-            taken.append((x, y))
+            grid.add(x, y)
             out.append((x, y))
             break
         else:
             raise RuntimeError(
-                f"could not place {label} {len(out) + 1} of {count} between "
-                f"r={r_inner} and r={r_outer} at {min_spacing_m} m spacing; "
+                f"could not place {label} {len(out) + 1} of {count} in a "
+                f"{2 * half_m:g} m square at {min_spacing_m} m spacing; "
                 f"lower the count or the spacing")
     return out
 
 
 def tree_positions(p: ForestParams,
-                   rng: random.Random) -> list[tuple[str, str, float, float, float]]:
-    """``(uri, name, x, y, yaw)`` in the order they are emitted.
+                   rng: random.Random) -> list[tuple[TreeKind, str, float, float, float]]:
+    """``(kind, name, x, y, yaw)`` in the order they are emitted.
 
-    Emission order matches the legacy fragment, and the YAML trunk list must use the
-    same order: ``uavsim/world.py`` reads it to keep placed targets out of canopies.
+    The YAML trunk list must use the same order: ``uavsim/world.py`` reads it to keep
+    placed targets out of canopies.
     """
-    taken: list[tuple[float, float]] = []
-    inside, outside = (0.0, p.mission_radius_m), (p.mission_radius_m, p.scenery_radius_m)
+    grid = _Grid(max(p.min_tree_spacing_m, 1.0))
+    half = p.half_m - p.edge_margin_m
+    oaks = _place(rng, p.oak_count, half, grid, p.min_tree_spacing_m, "oak")
+    pines = _place(rng, p.pine_count, half, grid, p.min_tree_spacing_m, "pine")
 
-    pine_in = _place(rng, p.pine_inside, *inside, taken, p.min_tree_spacing_m, "pine")
-    oak_out = _place(rng, p.oak_outside, *outside, taken, p.min_tree_spacing_m, "oak")
-    pine_out = _place(rng, p.pine_outside, *outside, taken, p.min_tree_spacing_m, "pine")
-    oak_in = _place(rng, p.oak_inside, *inside, taken, p.min_tree_spacing_m, "oak")
-    oak_extra = _place(rng, p.oak_outer_extra, *outside, taken, p.min_tree_spacing_m, "oak")
-
-    trees: list[tuple[str, str, float, float, float]] = []
-
-    def add(uri: str, name: str, point: tuple[float, float]) -> None:
-        trees.append((uri, name, point[0], point[1], rng.uniform(0.0, 2.0 * math.pi)))
-
-    for i, pt in enumerate(pine_in, 1):
-        add(PINE_URI, f"Pine_Tree_Inside_{i}", pt)
-    for i, (oak, pine) in enumerate(zip(oak_out, pine_out), 1):   # alternating, as before
-        add(OAK_URI, f"Oak_Tree_Outside_{i}", oak)
-        add(PINE_URI, f"Pine_Tree_Outside_{i}", pine)
-    for i, pt in enumerate(oak_in, 1):
-        add(OAK_URI, f"Oak_Tree_Inside_{i}", pt)
-    for i, pt in enumerate(oak_extra, 1):
-        add(OAK_URI, f"Oak_Tree_Outer_Extra_{i}", pt)
+    trees: list[tuple[TreeKind, str, float, float, float]] = []
+    for kind, points in ((OAK, oaks), (PINE, pines)):
+        for i, (x, y) in enumerate(points, 1):
+            trees.append((kind, f"{kind.name}_{i}", x, y, rng.uniform(0.0, 2.0 * math.pi)))
     return trees
 
 
-def fire_positions(p: ForestParams, trees: list[tuple[str, str, float, float, float]],
+def fire_positions(p: ForestParams, trees: list[tuple[TreeKind, str, float, float, float]],
                    rng: random.Random) -> list[list[float]]:
-    """Fire markers inside the mission ring, clear of trunks and of each other.
+    """Fire markers inside the square, clear of trunks and of each other.
 
     These are ground truth, not scenery: the scenario decides whether to render them
     (``targets.fires``), and ``place_casualties`` keeps casualties away from them.
     """
-    trunks = [(x, y) for _, _, x, y, _ in trees]
-    placed: list[tuple[float, float]] = []
+    trunks = _Grid(max(p.min_fire_tree_m, 1.0))
+    for _, _, x, y, _ in trees:
+        trunks.add(x, y)
+    placed = _Grid(max(p.min_fire_spacing_m, 1.0))
+    out: list[list[float]] = []
     for _ in range(p.fire_count):
         for _attempt in range(2000):
-            x, y = _sample(rng, 0.0, p.mission_radius_m)
-            if any(math.hypot(x - tx, y - ty) < p.min_fire_tree_m for tx, ty in trunks):
+            x, y = _sample(rng, p.half_m - p.edge_margin_m)
+            if trunks.near(x, y, p.min_fire_tree_m):
                 continue
-            if any(math.hypot(x - px, y - py) < p.min_fire_spacing_m for px, py in placed):
+            if placed.near(x, y, p.min_fire_spacing_m):
                 continue
-            placed.append((x, y))
+            placed.add(x, y)
+            out.append([round(x, 2), round(y, 2), p.fire_z_m])
             break
         else:
             raise RuntimeError(
-                f"could not place fire {len(placed) + 1} of {p.fire_count} inside "
-                f"{p.mission_radius_m} m; lower --fires")
-    return [[round(x, 2), round(y, 2), p.fire_z_m] for x, y in placed]
+                f"could not place fire {len(out) + 1} of {p.fire_count} in the "
+                f"{p.size_m:g} m square; lower --fires")
+    return out
 
 
 # -- rendering -----------------------------------------------------------------
 
 def _invocation(p: ForestParams) -> str:
-    return (f"python3 tools/gen_roi_forest.py --mission-radius {p.mission_radius_m:g} "
-            f"--scenery-radius {p.scenery_radius_m:g} \\\n"
-            f"               --oak {p.oak_count} --pine {p.pine_count} "
-            f"--fires {p.fire_count} --seed {p.seed}")
+    return (f"python3 tools/gen_roi_forest.py --size {p.size_m:g} --oak {p.oak_count} "
+            f"--pine {p.pine_count} \\\n"
+            f"        --fires {p.fire_count} --seed {p.seed}")
 
 
 SCENERY_MODEL_NAME = "forest_scenery"
@@ -307,34 +336,33 @@ SCENERY_MODEL_NAME = "forest_scenery"
 
 def render_sdf(p: ForestParams, tiles: list[tuple[str, float, float]],
                posts: list[tuple[str, float, float]],
-               trees: list[tuple[str, str, float, float, float]]) -> str:
-    """The fragment, with the bulk scenery nested inside one static parent model.
+               trees: list[tuple[TreeKind, str, float, float, float]]) -> str:
+    """The fragment: the bulk scenery as visuals and collisions on one static link.
 
-    Why nested.  The grass, trees and posts are ~565 entities, and Gazebo's entity
-    tree lists everything the world contains in creation order.  Vehicles are created
-    last, at runtime, so a flat fragment buries them under hundreds of near-identical
-    `grasspatch_*` and `Oak_Tree_*` rows -- and a user looking for their own drone
-    concludes it never spawned.  One collapsible parent turns 565 rows into 1.
+    Why one link: see the module docstring -- per-object models are far heavier.  It also keeps Gazebo's entity tree navigable: vehicles are created last,
+    at runtime, and a flat list of thousands of scenery models buries them, so a
+    user looking for their own drone concludes it never spawned.
 
     ``axes`` deliberately stays at world level: it carries the world's only navsat
     sensor, and nesting it would change that sensor's topic path, which the PX4
     backend depends on.
+
+    The grass tiles are thin boxes whose top face is at z=0, not ``<plane>``s: the
+    world has exactly one plane, in base_world.sdf.j2.
     """
-    entities = len(tiles) + len(posts) + len(trees) + 1
     out = [f"""\
 <!-- Forest region-of-interest scenery, centred on the world origin.
      GENERATED by tools/gen_roi_forest.py. Do not edit by hand. The exact
      regeneration command is in the header of roi_forest.yaml, which can carry the
      flags that an XML comment cannot; the generator's check mode asserts that the
-     committed files still match it. Built from: mission_radius={p.mission_radius_m:g} m, scenery_radius={p.scenery_radius_m:g} m,
+     committed files still match it. Built from: size={p.size_m:g} m square,
      oak={p.oak_count}, pine={p.pine_count}, fires={p.fire_count}, seed={p.seed}.
-     Included by worlds/templates/base_world.sdf.j2. {entities} entities:
-     {len(tiles)} grass tiles, {len(trees)} trees, {len(posts)} boundary posts, 1 axis marker.
-     The grass, trees and posts are nested in one static '{SCENERY_MODEL_NAME}' model so
-     that Gazebo's entity tree stays navigable: a flat list buries the runtime-spawned
-     vehicles under hundreds of scenery rows. Their scoped names therefore read
-     '{SCENERY_MODEL_NAME}::Oak_Tree_Inside_1'. The axis marker stays at world level
-     because it carries the navsat sensor the PX4 backend needs.
+     Included by worlds/templates/base_world.sdf.j2.
+     {len(tiles)} grass tiles, {len(trees)} trees and {len(posts)} boundary posts, all as
+     visuals and collisions of ONE static link in '{SCENERY_MODEL_NAME}': as separate
+     models the same scenery is far heavier to load and simulate
+     (tools/gen_roi_forest.py has the measurements). The axis marker stays at world level because it carries the
+     navsat sensor the PX4 backend needs.
      Declares no plane geometry and no ground plane: there is exactly one plane
      collision per world, in base_world.sdf.j2.
      Fire/casualty/ROI targets are placed by the scenario, see roi_forest.yaml. -->
@@ -343,76 +371,84 @@ def render_sdf(p: ForestParams, tiles: list[tuple[str, float, float]],
     out.append(f'    <model name="{SCENERY_MODEL_NAME}">\n')
     out.append("      <static>true</static>\n")
     out.append("      <pose>0 0 0 0 0 0</pose>\n")
+    out.append('      <link name="link">\n')
+    half = p.grass_tile_m / 2.0
     for name, x, y in tiles:
         out.append(f"""\
-      <include>
-        <uri>model://grasspatch_visual</uri>
-        <name>{name}</name>
-        <pose>{x:.5f} {y:.5f} 0.00000 0 0 0</pose>
-      </include>
+        <visual name="{name}">
+          <pose>{x:.3f} {y:.3f} -0.005 0 0 0</pose>
+          <cast_shadows>false</cast_shadows>
+          <geometry><box><size>{2 * half:g} {2 * half:g} 0.01</size></box></geometry>
+          <material>
+            <diffuse>1 1 1 1</diffuse><specular>1 1 1 1</specular>
+            <pbr><metal><albedo_map>{GRASS_TEXTURE}</albedo_map></metal></pbr>
+          </material>
+        </visual>
 """)
     for name, x, y in posts:
         out.append(f"""\
-      <model name="{name}">
-        <static>true</static>
-        <pose>{x:.3f} {y:.3f} 1.0 0 0 0</pose>
-        <link name="link">
-          <collision name="collision">
-            <geometry>
-              <cylinder>
-                <radius>0.20</radius>
-                <length>2.0</length>
-              </cylinder>
-            </geometry>
-          </collision>
-          <visual name="visual">
-            <geometry>
-              <cylinder>
-                <radius>0.20</radius>
-                <length>2.0</length>
-              </cylinder>
-            </geometry>
-          </visual>
-        </link>
-      </model>
+        <visual name="{name}">
+          <pose>{x:.3f} {y:.3f} 1.0 0 0 0</pose>
+          <geometry><cylinder><radius>0.20</radius><length>2.0</length></cylinder></geometry>
+        </visual>
+        <collision name="{name}_collision">
+          <pose>{x:.3f} {y:.3f} 1.0 0 0 0</pose>
+          <geometry><cylinder><radius>0.20</radius><length>2.0</length></cylinder></geometry>
+        </collision>
 """)
-    for uri, name, x, y, yaw in trees:
+    for kind, name, x, y, yaw in trees:
+        mesh = kind.uri(kind.mesh)
         out.append(f"""\
-      <include>
-        <uri>{uri}</uri>
-        <name>{name}</name>
-        <pose>{x:.4f} {y:.4f} 0 0 0 {yaw:.4f}</pose>
-      </include>
+        <visual name="{name}_branch">
+          <pose>{x:.3f} {y:.3f} 0 0 0 {yaw:.3f}</pose>
+          <geometry><mesh><uri>{mesh}</uri><submesh><name>Branch</name></submesh></mesh></geometry>
+          <material>
+            <double_sided>true</double_sided><diffuse>1 1 1 1</diffuse>
+            <pbr><metal><albedo_map>{kind.uri(kind.branch_texture)}</albedo_map></metal></pbr>
+          </material>
+        </visual>
+        <visual name="{name}_bark">
+          <pose>{x:.3f} {y:.3f} 0 0 0 {yaw:.3f}</pose>
+          <geometry><mesh><uri>{mesh}</uri><submesh><name>Bark</name></submesh></mesh></geometry>
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <pbr><metal><albedo_map>{kind.uri("materials/textures/bark_diffuse.png")}</albedo_map></metal></pbr>
+          </material>
+        </visual>
+        <collision name="{name}_collision">
+          <pose>{x:.3f} {y:.3f} {kind.collision_height_m / 2:g} 0 0 0</pose>
+          <geometry><cylinder><radius>{kind.collision_radius_m:g}</radius><length>{kind.collision_height_m:g}</length></cylinder></geometry>
+        </collision>
 """)
+    out.append("      </link>\n")
     out.append("    </model>\n")
     return "".join(out)
 
 
 def render_yaml(p: ForestParams, tiles: list[tuple[str, float, float]],
                 posts: list[tuple[str, float, float]],
-                trees: list[tuple[str, str, float, float, float]],
+                trees: list[tuple[TreeKind, str, float, float, float]],
                 fires: list[list[float]], extent: list[float]) -> str:
-    entities = len(tiles) + len(posts) + len(trees) + 1
+    mission = mission_extent(p)
     lines = [
         "# Forest region-of-interest metadata.",
         "# GENERATED -- do not edit by hand. Regenerate with:",
         f"#   {_invocation(p).replace(chr(10), chr(10) + '#   ')}",
         "id: roi_forest",
-        "description: Forest search area, doubled in area from the legacy forest.sdf.",
+        f"description: Forest search area, a {p.size_m:g} m x {p.size_m:g} m square "
+        "centred on the world origin.",
         "centre: [0.0, 0.0]",
-        f"mission_radius_m: {p.mission_radius_m}          # the boundary posts in the scenery",
-        f"scenery_radius_m: {p.scenery_radius_m}",
-        f"entities: {entities}",
+        f"size_m: [{p.size_m}, {p.size_m}]",
+        f"mission_extent: [{mission[0]}, {mission[1]}, {mission[2]}, {mission[3]}]"
+        "   # xmin, xmax, ymin, ymax; the boundary posts",
         f"tree_count: {len(trees)}",
         f"ground_extent: [{extent[0]}, {extent[1]}, {extent[2]}, {extent[3]}]"
         "   # xmin, xmax, ymin, ymax",
         "generated_by: tools/gen_roi_forest.py",
         f"generator_seed: {p.seed}",
         "generator_args: {"
-        f"mission_radius_m: {p.mission_radius_m}, scenery_radius_m: {p.scenery_radius_m}, "
-        f"oak: {p.oak_count},",
-        f"                 pine: {p.pine_count}, fires: {p.fire_count}, "
-        f"grass_pitch_m: {p.grass_pitch_m}}}",
+        f"size_m: {p.size_m}, oak: {p.oak_count}, pine: {p.pine_count}, "
+        f"fires: {p.fire_count}}}",
         "fires:",
     ]
     lines += [f"  - [{x:.2f}, {y:.2f}, {z:.2f}]" for x, y, z in fires]
@@ -435,20 +471,11 @@ def generate(p: ForestParams) -> tuple[str, str]:
 
 # -- cli -----------------------------------------------------------------------
 
-def _split_oak(total: int) -> dict[str, int]:
-    """Oak split 1:4:5 across inside / outside / outer-extra, as the legacy forest."""
-    inside = round(total * 0.25)
-    outside = round(total * 1 / 3)
-    return {"oak_inside": inside, "oak_outside": outside,
-            "oak_outer_extra": total - inside - outside}
-
-
 def main(argv: list[str] | None = None) -> int:
     d = ForestParams()
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--mission-radius", type=float, default=d.mission_radius_m)
-    ap.add_argument("--scenery-radius", type=float, default=d.scenery_radius_m)
-    ap.add_argument("--grass-pitch", type=float, default=d.grass_pitch_m)
+    ap.add_argument("--size", type=float, default=d.size_m,
+                    help="side of the square forest, in metres")
     ap.add_argument("--oak", type=int, default=d.oak_count)
     ap.add_argument("--pine", type=int, default=d.pine_count)
     ap.add_argument("--fires", type=int, default=d.fire_count)
@@ -458,11 +485,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="regenerate in memory and byte-compare; exit 1 on a mismatch")
     args = ap.parse_args(argv)
 
-    params = replace(
-        d, mission_radius_m=args.mission_radius, scenery_radius_m=args.scenery_radius,
-        grass_pitch_m=args.grass_pitch, pine_inside=args.pine // 2,
-        pine_outside=args.pine - args.pine // 2, fire_count=args.fires, seed=args.seed,
-        **_split_oak(args.oak))
+    params = replace(d, size_m=args.size, oak_count=args.oak, pine_count=args.pine,
+                     fire_count=args.fires, seed=args.seed)
 
     sdf_text, yaml_text = generate(params)
     sdf_path = args.out_dir / "roi_forest.sdf"

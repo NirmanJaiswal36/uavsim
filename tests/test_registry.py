@@ -14,7 +14,7 @@ from uavsim.adapter import Pose, WorldInfo                       # noqa: E402
 from uavsim.allocator import AllocationError, FleetRequest, allocate  # noqa: E402
 from uavsim.registry import Registry, RegistryError              # noqa: E402
 from uavsim.sdf import render_model                              # noqa: E402
-from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, SiteLayout  # noqa: E402
+from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, SiteLayout, compose  # noqa: E402
 
 RUN_DIR = Path("/tmp/uavsim-tests")
 
@@ -55,10 +55,15 @@ def test_unknown_vehicle_names_the_known_ones(registry):
 
 
 def test_binding_must_exist_for_backend(registry):
-    # zephyr has no px4 binding; resolving that pair must fail loudly
-    registry.vehicles["ardupilot_zephyr"]
-    airframe = registry.airframes["zephyr"]
+    # iris has no px4 binding; resolving that pair must fail loudly
+    airframe = registry.airframes["iris"]
     assert "px4" not in airframe.bindings
+
+
+def test_every_airframe_is_a_quadcopter(registry):
+    """The environment flies multirotors only: no runway, every vehicle on a pad."""
+    assert registry.airframes
+    assert {af.cls for af in registry.airframes.values()} == {"multirotor"}
 
 
 # -- capabilities ------------------------------------------------------------
@@ -67,7 +72,7 @@ def test_capabilities_merge_airframe_backend_and_payloads(registry):
     caps = registry.resolve("ardupilot_iris_gimbal").capabilities(name="v0", world="w")
     assert caps["platform"]["class"] == "multirotor"
     assert caps["platform"]["hover"] is True
-    assert caps["platform"]["vtol"] is False
+    assert "vtol" not in caps["platform"] and "launch" not in caps["platform"]
     assert caps["autopilot"]["backend"] == "ardupilot"
     assert "mavlink2" in caps["autopilot"]["protocols"]
     kinds = {s["kind"] for s in caps["sensors"]}
@@ -75,11 +80,6 @@ def test_capabilities_merge_airframe_backend_and_payloads(registry):
     assert caps["actuators"][0]["kind"] == "gimbal.3axis"
     assert "/v0/gimbal_cam/image_raw" == caps["sensors"][0]["ros"]["topic"]
     assert "world/w/" in caps["sensors"][0]["gz_topic"]
-
-
-def test_vtol_class_reports_vtol(registry):
-    caps = registry.resolve("px4_standard_vtol").capabilities()
-    assert caps["platform"]["vtol"] is True and caps["platform"]["hover"] is True
 
 
 # -- allocation --------------------------------------------------------------
@@ -123,12 +123,12 @@ def test_ardupilot_gcs_ports_avoid_px4s_onboard_mavlink_range(registry, world):
     assert len(set(gcs_ports)) == len(gcs_ports)
 
 
-def test_fixed_wing_goes_to_the_runway_multirotor_to_the_pads(registry):
-    insts = _allocate(registry, [FleetRequest("ardupilot_zephyr", 1),
-                                 FleetRequest("ardupilot_iris_gimbal", 1)])
-    zephyr, iris = insts
-    assert zephyr.pose.x > iris.pose.x        # runway is closer to the ROI than the apron
-    assert abs(zephyr.pose.y) < 1e-6          # on the centreline
+def test_every_vehicle_gets_a_pad(registry):
+    insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 4),
+                                 FleetRequest("px4_x500", 2)])
+    pads = {(round(p.x, 3), round(p.y, 3))
+            for p in (compose(DEFAULT_GCS_POSE, s) for s in DEFAULT_SITE.pad_slots())}
+    assert {(round(i.pose.x, 3), round(i.pose.y, 3)) for i in insts} <= pads
 
 
 def test_vehicles_face_the_roi(registry):

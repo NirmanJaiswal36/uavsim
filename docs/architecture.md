@@ -40,7 +40,7 @@ mysterious Gazebo failure.
 | `spec.py` | Frozen dataclasses for registry data, plus the merged `ResolvedVehicle` and its `capabilities()` normaliser |
 | `registry.py` | Loads and validates everything under `registry/`, merges a vehicle type, imports backend adapters |
 | `adapter.py` | The backend contract: `Pose`, `WorldInfo`, `Instance`, `ProcessSpec`, `SpawnRequest`, `AutopilotAdapter` |
-| `site.py` | Pure geometry of the GCS — pad grid, runway slots, headings, and the derived standoff that leaves 200 m of open ground between the runway end and the forest boundary. Single source of truth shared by world rendering and allocation |
+| `site.py` | Pure geometry of the GCS — pad grid, apron extent, headings, and the derived standoff that leaves 100 m of open ground between the apron's front edge and the forest edge. Single source of truth shared by world rendering and allocation |
 | `allocator.py` | Turns fleet requests into concrete instances: unique names, sysids, per-backend indices, pad assignment, singleton-payload enforcement |
 | `world.py` | Builds the vehicle-free world from Jinja templates; casualty **and ROI** placement, ENU↔geo conversion, terrain clipping |
 | `sdf.py` | Renders one instance's model SDF in memory and validates it as XML |
@@ -66,7 +66,7 @@ Resolved per vehicle and written to the manifest. The bridge generator reads onl
 never SDF — which is why adding a payload automatically produces ROS 2 topics.
 
 ```yaml
-platform:  {class, hover, vtol, launch, cruise_mps, max_mps, endurance_min, mass_kg, footprint_radius_m}
+platform:  {class, hover, cruise_mps, max_mps, endurance_min, mass_kg, footprint_radius_m}
 autopilot: {backend, protocols, ros2_native, offboard, sim_time}
 sensors:   [{id, kind: camera.rgb|camera.depth|imu|..., rate_hz, gz_topic, ros: {topic, type, direction}}]
 actuators: [{id, kind: gimbal.3axis|..., axes, gz_topic, ros: {...}}]
@@ -156,10 +156,15 @@ Reproducibility comes from `--check` instead, which regenerates in memory and
 byte-compares; `tests/test_world.py` and `tests/test_registry.py` run it. The exact
 regeneration command is recorded in `roi_forest.yaml` under `generator_args`.
 
-The generated fragment nests its grass, trees and boundary posts inside one static
-`forest_scenery` model. That is not cosmetic: Gazebo's entity tree lists entities in
-creation order and vehicles are created last, so flat scenery puts the fleet at the
-bottom of a 591-row list and makes it look like nothing spawned. The axis marker
+The generated fragment puts its grass, trees and boundary posts on one static link
+inside a `forest_scenery` model: visuals for the scenery, one bounding cylinder per
+tree for collision. That is not cosmetic. As one `<include>`d model per object, every
+tile and tree is its own physics body carrying its full canopy mesh as a collision,
+and a forest of this size loads slowly and simulates slower (the generator's
+docstring has the measurements). It also keeps Gazebo's entity tree navigable:
+entities are listed in creation order and vehicles are created last, so flat scenery
+puts the fleet at the bottom of a list thousands of rows long and makes it look like
+nothing spawned. The axis marker
 stays at world level because it carries the world's only navsat sensor, and nesting
 it would move that sensor's topic path out from under the PX4 backend.
 
@@ -181,6 +186,6 @@ output. Both are gitignored — the repository ships templates and data, not art
 
 A `<plane>` collision shape in Gazebo is an infinite half-space in DART. Two of them make
 the ground-contact LCP singular, and the physics step freezes — with no error message.
-So the world has exactly one `ground_plane`, and the apron, runway and grass patches are
+So the world has exactly one `ground_plane`, and the apron, pads and grass tiles are
 boxes or visual-only geometry. `uavsim verify` and `tests/test_world.py` both enforce it,
 and `tests/test_registry.py` checks that no vehicle model introduces one either.

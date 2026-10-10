@@ -115,7 +115,7 @@ class Registry:
                 vars=raw.get("vars") or {},
             )
         return Airframe(
-            id=data["id"], cls=data["class"], launch=data["launch"], dir=path.parent,
+            id=data["id"], cls=data["class"], dir=path.parent,
             model_uri=data.get("model_uri"), base_link=data.get("base_link"),
             imu_sensor=data.get("imu_sensor"), geometry=data.get("geometry") or {},
             performance=data.get("performance") or {}, mounts=data.get("mounts") or {},

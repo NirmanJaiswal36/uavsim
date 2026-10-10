@@ -1,8 +1,9 @@
-# The reference scenario: a swarm launches from a ground control station west of
-# a forest search area and flies in to find the targets hidden in it.
+# The reference scenario: a quadcopter swarm launches from a ground control station
+# west of a 500 m x 500 m forest search area and flies in to find the targets
+# hidden in it.
 #
-# The runway ends 200 m short of the forest's 85 m mission boundary, so the
-# transit leg is short enough to fly in a reasonable amount of sim time.
+# The front edge of the GCS apron is 100 m short of the forest edge (x = -250),
+# so the transit leg is short and the whole forest is the search area.
 #
 # Change the fleet block and re-run 'uavsim up' -- nothing else needs editing.
 # 'uavsim list vehicles' shows what else you can put there.
@@ -12,7 +13,7 @@ name: forest_rescue
 world:
   name: rescue
   roi: roi_forest              # the forest search area, centred on the world origin
-  gcs_pose: [-395, 0, 0, 0, 0, 0]
+  gcs_pose: [-365, 0, 0, 0, 0, 0]
 
 targets:
   fires: false

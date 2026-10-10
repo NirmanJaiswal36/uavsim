@@ -38,8 +38,7 @@ class Binding:
 @dataclass(frozen=True)
 class Airframe:
     id: str
-    cls: str                      # multirotor | fixed_wing | vtol | helicopter
-    launch: str                   # pad | runway
+    cls: str                      # multirotor: the only class this environment flies
     dir: Path
     model_uri: str | None = None
     base_link: str | None = None
@@ -131,9 +130,7 @@ class ResolvedVehicle:
         caps: dict[str, Any] = {
             "platform": {
                 "class": af.cls,
-                "hover": af.cls in ("multirotor", "vtol", "helicopter"),
-                "vtol": af.cls == "vtol",          # transitions between hover and wing-borne
-                "launch": af.launch,
+                "hover": af.cls == "multirotor",
                 "cruise_mps": perf.get("cruise_mps"),
                 "max_mps": perf.get("max_mps"),
                 "endurance_min": perf.get("endurance_min"),

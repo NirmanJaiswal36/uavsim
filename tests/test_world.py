@@ -21,7 +21,12 @@ from uavsim.registry import Registry                             # noqa: E402
 from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, compose  # noqa: E402
 from uavsim.world import DEFAULT_ROI_TYPES, camera_eye_and_target  # noqa: E402
 from uavsim.world import (TargetSpec, WorldSpec, build, enu_to_geo,  # noqa: E402
-                          load_roi, place_casualties, place_rois)
+                          gcs_standoff_m, load_roi, place_casualties, place_rois)
+
+
+def _inside(roi, x, y) -> bool:
+    xmin, xmax, ymin, ymax = roi["mission_extent"]
+    return xmin <= x <= xmax and ymin <= y <= ymax
 
 
 @pytest.fixture(scope="module")
@@ -67,8 +72,8 @@ def test_world_contains_no_vehicles(built):
 
 def test_world_contains_the_roi_the_gcs_and_the_targets(built):
     text = built.info.sdf_path.read_text()
-    assert "grasspatch" in text and "Oak Tree" in text      # scenery came across
-    assert "gcs_site" in text and "runway" in text
+    assert "grasspatch_visual" in text and "oak tree" in text   # scenery came across
+    assert "gcs_site" in text and "runway" not in text
     assert text.count('<model name="fire_') == len(built.fires) == 40
     assert text.count('<model name="casualty_') == len(built.casualties) == 4
 
@@ -93,13 +98,12 @@ def test_casualty_placement_is_deterministic():
     assert place_casualties(roi, spec) == place_casualties(roi, spec)
 
 
-def test_casualties_stay_inside_the_mission_radius_and_clear_of_trees():
+def test_casualties_stay_inside_the_forest_and_clear_of_trees():
     roi = load_roi("roi_forest")
     placed = place_casualties(roi, TargetSpec(casualty_count=10, casualty_seed=5),
                               [list(f) for f in roi["fires"]])
-    radius = roi["mission_radius_m"]
     for x, y, _ in placed:
-        assert (x * x + y * y) ** 0.5 <= radius
+        assert _inside(roi, x, y)
         assert all(((x - tx) ** 2 + (y - ty) ** 2) ** 0.5 >= 3.0 for tx, ty in roi["trees"])
         assert all(((x - fx) ** 2 + (y - fy) ** 2) ** 0.5 >= 5.0 for fx, fy, _ in roi["fires"])
 
@@ -159,8 +163,12 @@ def test_manifest_reports_everything_a_framework_needs(registry, built):
     data = manifest_mod.build(built, insts, endpoints)
 
     assert data["schema_version"] == manifest_mod.SCHEMA_VERSION
-    assert data["gcs"]["distance_to_roi_m"] == 395.0
-    assert data["roi"]["mission_radius_m"] == 85.0
+    assert data["gcs"]["distance_to_roi_m"] == 365.0
+    assert data["gcs"]["standoff_m"] == 100.0
+    assert "runway" not in data["gcs"]
+    assert data["roi"]["size_m"] == [500.0, 500.0]
+    assert data["roi"]["mission_extent_enu"] == [-250.0, 250.0, -250.0, 250.0]
+    assert len(data["roi"]["boundary_geo"]) == 4
     assert len(data["targets"]["fires"]) == 40
     assert len(data["vehicles"]) == 3
     for vehicle in data["vehicles"]:
@@ -179,16 +187,28 @@ def test_manifest_topics_are_per_vehicle(registry, built):
     assert len(set(topics)) == len(topics)
 
 
-def test_the_gcs_leaves_200_m_of_open_ground_to_the_mission_boundary(built):
-    """The whole point of the standoff: the runway's far end is the forest-facing
-    extremity of the GCS, so that -- not the site origin -- is what must clear the
-    trees. See the arithmetic in uavsim/site.py."""
+def test_the_gcs_leaves_100_m_of_open_ground_to_the_forest(built):
+    """The apron's front edge is the forest-facing extremity of the GCS, so that --
+    not the site origin -- is what must clear the trees. See the arithmetic in
+    uavsim/site.py."""
     site = built.site
-    runway_end = built.site_pose.x + site.runway_x0_m + site.runway_length_m
-    assert -built.roi["mission_radius_m"] - runway_end == pytest.approx(200.0, abs=0.5)
-    apron_rear = built.site_pose.x + site.apron_x_m \
-        - (site.pad_rows * site.pad_spacing_m + 6) / 2.0
-    assert apron_rear < runway_end                      # the site points at the forest
+    front = built.site_pose.x + site.front_x_m
+    assert built.roi["mission_extent"][0] - front == pytest.approx(100.0, abs=0.5)
+    assert gcs_standoff_m(built.site_pose, site, built.roi) == pytest.approx(100.0)
+    pads = [compose(built.site_pose, slot) for slot in site.pad_slots()]
+    assert max(p.x + site.pad_radius_m for p in pads) < front   # pads are on the apron
+    nearest_tree = min(x for x, _ in built.roi["trees"])
+    assert nearest_tree - front >= 100.0
+
+
+def test_the_forest_is_a_500_m_square_centred_on_the_origin():
+    roi = load_roi("roi_forest")
+    assert roi["size_m"] == [500.0, 500.0]
+    assert roi["mission_extent"] == [-250.0, 250.0, -250.0, 250.0]
+    assert roi["ground_extent"] == roi["mission_extent"]       # grass covers it exactly
+    assert all(_inside(roi, x, y) for x, y in roi["trees"])
+    xs, ys = [t[0] for t in roi["trees"]], [t[1] for t in roi["trees"]]
+    assert min(xs) < -225 and max(xs) > 225 and min(ys) < -225 and max(ys) > 225
 
 
 # -- regions of interest -------------------------------------------------------
@@ -203,7 +223,7 @@ def test_rois_are_placed_clear_of_trunks_fires_and_each_other():
     assert len({r.aruco_id for r in placed}) == 8
     assert {r.type for r in placed} <= set(DEFAULT_ROI_TYPES)
     for r in placed:
-        assert (r.x ** 2 + r.y ** 2) ** 0.5 <= roi["mission_radius_m"]
+        assert _inside(roi, r.x, r.y)
         assert all(math.hypot(r.x - tx, r.y - ty) >= 6.0 for tx, ty in roi["trees"])
         assert all(math.hypot(r.x - fx, r.y - fy) >= 8.0 for fx, fy, _ in fires)
     for a, b in itertools.combinations(placed, 2):
@@ -237,7 +257,8 @@ def test_rois_add_no_plane_and_no_fuel_model_to_the_world(built_with_rois):
     assert len(re.findall(r'<model name="roi_\d+_', text)) == 8
     for marker_id in range(8):
         assert f"model://aruco_marker_{marker_id}" in text
-    assert text.count("fuel.gazebosim.org") == 200      # the forest's trees, nothing new
+    trees = built_with_rois.roi["tree_count"]
+    assert text.count("fuel.gazebosim.org") == 4 * trees   # 2 meshes + 2 textures per tree, nothing new
 
 
 def test_the_manifest_carries_roi_and_marker_ground_truth(built_with_rois):
@@ -276,39 +297,41 @@ def test_the_roi_metadata_agrees_with_the_scenery():
     roi = load_roi("roi_forest")
     sdf = (Path(__file__).resolve().parents[1]
            / "worlds" / "fragments" / "roi_forest.sdf").read_text()
-    assert roi["tree_count"] == len(roi["trees"]) == 200
-    assert sdf.count("models/Oak Tree") == 120
-    assert sdf.count("models/Pine Tree") == 80
-    assert sdf.count("model://grasspatch_visual") == 313
-    assert sdf.count('<model name="boundary') == 52
+    trees = roi["tree_count"]
+    assert trees == len(roi["trees"])
+    assert sdf.count("oak tree/7/files/meshes") + sdf.count("pine tree/6/files/meshes") \
+        == 2 * trees                            # a branch and a bark visual each
+    assert sdf.count("_Tree_") == 3 * trees     # ... plus one collision
+    assert sdf.count("grasspatch_visual/materials") == 34 * 34
     assert sdf.count("<plane>") == 0            # the one plane lives in base_world
     assert sdf.count("navsat_sensor") == 1      # the PX4 backend needs it
     assert len(roi["fires"]) == 40
     for x, y, z in roi["fires"]:
-        assert (x * x + y * y) ** 0.5 <= roi["mission_radius_m"]
+        assert _inside(roi, x, y)
         assert z == 0.40
 
 
-def test_the_bulk_scenery_is_nested_so_the_entity_tree_stays_navigable():
-    """Gazebo's entity tree lists everything in creation order, and vehicles are
-    created last, at runtime. Flat scenery buries them under hundreds of
-    near-identical rows and the vehicles look like they never spawned -- so the
-    grass, trees and posts live inside one collapsible parent model.
-    """
+def test_the_bulk_scenery_is_one_static_link():
+    """One model per tree and tile makes every object a physics body with a full
+    canopy-mesh collision (tools/gen_roi_forest.py has the measurements), and a flat
+    entity tree buries the runtime-spawned vehicles. So everything lives on one link."""
     sdf = (Path(__file__).resolve().parents[1]
            / "worlds" / "fragments" / "roi_forest.sdf").read_text()
     stripped = re.sub(r"<!--.*?-->", "", sdf, flags=re.S)
-    assert stripped.count('<model name="forest_scenery">') == 1
+    top_level = re.findall(r'^    <model name="([^"]+)"', stripped, re.M)
+    assert top_level == ["axes", "forest_scenery"]
+    assert stripped.count("<model ") == 2
+    assert stripped.count("<link ") == 2
+    assert "<include>" not in stripped, "every include is its own model and physics body"
 
-    # top-level entries are at four-space indent; everything bulky is deeper
-    top_level = re.findall(r"^    <(?:model name=\"([^\"]+)\"|include)", stripped, re.M)
-    assert sorted(n for n in top_level if n) == ["axes", "forest_scenery"]
-    assert "\n    <include>" not in stripped, "a top-level include would be its own tree row"
 
-    # and the content is still all there, just one level down
-    assert stripped.count("model://grasspatch_visual") == 313
-    assert stripped.count('<model name="boundary') == 52
-    assert stripped.count("fuel.gazebosim.org") == 200
+def test_the_forest_keeps_the_legacy_tree_density():
+    """A bigger forest at the same density, not the same trees spread thinner."""
+    roi = load_roi("roi_forest")
+    old_density = 100 / (math.pi * 104.7 ** 2)
+    width = roi["mission_extent"][1] - roi["mission_extent"][0]
+    height = roi["mission_extent"][3] - roi["mission_extent"][2]
+    assert roi["tree_count"] / (width * height) == pytest.approx(old_density, rel=0.01)
 
 
 def test_the_axis_marker_stays_at_world_level():
@@ -322,25 +345,11 @@ def test_the_axis_marker_stays_at_world_level():
     assert axes < scenery, "axes must not be inside the scenery model"
 
 
-def test_the_forest_doubled_in_area_at_constant_density():
-    """Doubling the area means radius * sqrt(2) AND twice the trees: scaling the
-    positions alone would halve the density and read as a different place."""
-    roi = load_roi("roi_forest")
-    assert roi["mission_radius_m"] / 60.0 == pytest.approx(2 ** 0.5, rel=0.02)
-    assert roi["scenery_radius_m"] / 104.7 == pytest.approx(2 ** 0.5, rel=0.02)
-    old_density = 100 / (104.7 ** 2)
-    assert roi["tree_count"] / (roi["scenery_radius_m"] ** 2) \
-        == pytest.approx(old_density, rel=0.02)
-    inside = [t for t in roi["trees"]
-              if (t[0] ** 2 + t[1] ** 2) ** 0.5 <= roi["mission_radius_m"]]
-    assert len(inside) == 70                     # 35 before, same density inside too
-
-
 # -- rendering artefacts -------------------------------------------------------
 
 def test_ground_visual_never_overlaps_the_roi_grass(built):
-    """The grass patches are planes at z=0; a ground visual under them z-fights and
-    the patches flicker in and out as the camera zooms (seen in the GUI)."""
+    """The grass tiles' top faces are at z=0; a ground visual under them z-fights and
+    the tiles flicker in and out as the camera zooms (seen in the GUI)."""
     from uavsim.world import terrain_patch
     xmin, xmax, ymin, ymax = built.roi["ground_extent"]
     patch = terrain_patch(built.site_pose, built.roi)
@@ -382,7 +391,7 @@ def test_the_default_camera_also_shows_the_roi(built):
     dx, dy, dz = target.x - eye.x, target.y - eye.y, target.z - eye.z
     yaw, pitch = math.atan2(dy, dx), math.atan2(-dz, math.hypot(dx, dy))
 
-    bx, by = -built.roi["mission_radius_m"], 0.0        # near edge of the ROI
+    bx, by = built.roi["mission_extent"][0], 0.0        # near edge of the ROI
     rx, ry, rz = bx - eye.x, by - eye.y, 0.0 - eye.z
     off_v = math.degrees(math.atan2(-rz, math.hypot(rx, ry)) - pitch)
     off_h = math.degrees((math.atan2(ry, rx) - yaw + math.pi) % (2 * math.pi) - math.pi)

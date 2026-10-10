@@ -3,44 +3,20 @@
 What does not work yet, and what is known-good. Nothing here is hidden in a footnote —
 if it is broken, it is listed.
 
-## `ardupilot_zephyr` does not take off
-
-**Status:** integrates correctly, does not fly.
-
-What works: the vehicle spawns on the runway, ArduPlane SITL connects over lock-step,
-it arms, the elevons respond correctly to attitude demands, and
-`uavsim verify --live` passes 10/10.
-
-What does not: it cannot reach rotation speed. At 100 % throttle it accelerates to about
-**7.7 m/s** and stays there, against a cruise speed of 18 m/s. It then skids sideways off
-the runway rather than tracking the centreline. Starting it airborne does not help, so
-this is not purely a ground-handling problem.
-
-Why: the Zephyr airframe has no landing gear and no nosewheel steering — it rests on its
-wing — and the propeller lift-drag configuration in
-`registry/airframes/zephyr/bindings/ardupilot.sdf.j2` does not produce enough thrust to
-overcome ground friction. Fixing it means tuning the lift-drag coefficients, the
-propeller thrust and the ground-contact model.
-
-If you need a fixed-wing vehicle today, `px4_advanced_plane` and `px4_rc_cessna` use
-PX4's own aerodynamic models rather than this binding, though neither has been
-flight-tested here either.
-
-### Fixed along the way
+## ArduPilot per-frame parameters are never applied automatically
 
 Worth knowing if you write your own ArduPilot vehicle type: uavsim starts SITL with
 `--model JSON`, and the SITL binary resolves its per-frame default parameters from the
 `--model` value rather than the `-f` frame name. ArduPilot's own
-`Tools/autotest/default_params/gazebo-zephyr.parm` was therefore **never applied**, so
-the elevons were unmixed and the wing had no chance. The parameters now ship as
-`config/gazebo-zephyr.parm` and are referenced from the vehicle type. Any airframe that
-needs motor mixing, elevon setup or mount configuration must list its own param file in
-`backend_config.param_files` — see [`extending.md`](extending.md).
+`Tools/autotest/default_params/<frame>.parm` is therefore **never applied**. Any
+airframe that needs motor mixing or mount configuration must list its own param file in
+`backend_config.param_files` (as `ardupilot_iris_gimbal` does with
+`config/gazebo-iris-gimbal.parm`) — see [`extending.md`](extending.md).
 
 ## Vehicle types that have not been flight-tested
 
-`ardupilot_iris`, `px4_x500_depth`, `px4_standard_vtol`, `px4_advanced_plane`,
-`px4_rc_cessna` and `static_iris` are shipped and covered by the test suite — their
+`ardupilot_iris`, `px4_x500_depth` and `static_iris` are shipped and covered by the
+test suite — their
 definitions validate, allocate and render to well-formed SDF — but no one has confirmed
 them in the air. They are a starting point, not a guarantee.
 
@@ -67,24 +43,26 @@ camera topics publish at about 3 Hz rather than their nominal rate. Under lock-s
 ArduPilot follows simulation time, so flight behaviour stays correct — it just takes
 longer in wall-clock terms. Expect this to get worse with more vehicles and more cameras.
 
-The doubled forest makes it worse again: 200 Fuel trees are textured meshes *with*
-collision, and shadow casting over them is the single biggest renderer cost. The 8 ROI
-props are primitives and cost comparatively little. If you need a faster world for
+The forest's 726 textured trees, and shadow casting over them, are the biggest renderer
+cost; the 8 ROI props are primitives and cost comparatively little. The forest is kept
+at 500 m × 500 m for this reason: a 1000 m square at the same tree density measured
+0.43 RTF against 1.00 for the 500 m one, with four gimbal cameras rendering and no
+vehicles (`tools/gen_roi_forest.py` has the table). If you need a faster world for
 development or CI, regenerate a smaller one rather than deleting entities by hand:
 
 ```bash
-python3 tools/gen_roi_forest.py --scenery-radius 105 --oak 60 --pine 40 --fires 20
+python3 tools/gen_roi_forest.py --size 300 --oak 157 --pine 104 --fires 20
 ```
 
-(and remember that `uavsim/site.py` derives the GCS standoff from the mission radius, so
-changing `--mission-radius` means changing `DEFAULT_GCS_POSE` too).
+(and move `DEFAULT_GCS_POSE` in `uavsim/site.py` and the scenarios' `gcs_pose` with it, or
+the GCS ends up further than 100 m from the forest edge).
 
-## The first run now downloads 200 trees
+## The first run downloads the tree models
 
-Doubling the forest doubled the Fuel fetch. Gazebo gives no progress indication while it
-happens, and `Spawner.wait_for_world()` can expire *before* the world has finished
-loading — which surfaces as a misleading "world never came up". Warm the cache once, with
-network, before timing or scripting anything:
+The oak and pine models come from Gazebo Fuel. Gazebo gives no progress indication while
+it fetches them, and `Spawner.wait_for_world()` can expire *before* the world has
+finished loading — which surfaces as a misleading "world never came up". Warm the cache
+once, with network, before timing or scripting anything:
 
 ```bash
 ./bin/uavsim up scenarios/forest_static.yaml      # then uavsim down
@@ -95,8 +73,8 @@ network, before timing or scripting anything:
 If a vehicle is created while the GUI is still building its 3D scene, the GUI never
 draws it. The model exists in the server, its autopilot gets GPS lock and it will
 fly, but there is nothing on the pad, and `/gui/move_to` logs `Target '<name>' not
-found`. The server is up long before the GUI (render engine plus ~600 world
-entities), so spawning as soon as the server answers loses the race. How many
+found`. The server is up long before the GUI (render engine plus thousands of
+scenery visuals), so spawning as soon as the server answers loses the race. How many
 vehicles go missing depends on timing, so it comes and goes. PX4 vehicles usually
 escape it because PX4 SITL creates its own model later, when its process starts.
 
@@ -120,16 +98,16 @@ below, is how you get a look at one.
 
 Gazebo's entity tree lists everything in creation order, and the vehicles are
 created **last** -- they are not in the world file at all, the spawner adds them at
-runtime over the `create` service. With the forest's ~565 scenery entities flat in
-the world, the six drones landed at rows 585-590 of 591, under a wall of
+runtime over the `create` service. When the old forest's ~565 scenery entities were
+flat in the world, the six drones landed at rows 585-590 of 591, under a wall of
 near-identical `grasspatch_*` and `Oak_Tree_*` rows. That reads exactly like "the
 drones are not spawning", and it cost real debugging time.
 
-The grass, trees and boundary posts therefore live inside one static
-`forest_scenery` parent model, so the top level of the tree is ~27 rows and the
-vehicles are visible without scrolling. Their scoped names are
-`forest_scenery::Oak_Tree_Inside_1` and so on; nothing in the environment refers to
-scenery entities by name, but a script of yours might.
+The grass, trees and boundary posts therefore live on one static link inside a
+`forest_scenery` model, so the top level of the tree is ~27 rows and the vehicles are
+visible without scrolling. Individual trees are visuals and collisions of that link
+(`Oak_Tree_1_branch`, `Oak_Tree_1_collision`, ...), not models, so they cannot be
+selected or moved one by one; nothing in the environment refers to them by name.
 
 To jump the camera to anything, by name:
 
@@ -168,7 +146,7 @@ Gazebo world origin — and a per-vehicle home would double-count the spawn offs
 the EKF tens of metres out. That origin is the **centre of the ROI**.
 
 So home and `LOCAL_POSITION_NED` (0, 0) are in the trees, a vehicle on the apron reports
-itself ~426 m from its own home, and `RTL` does exactly what it says. Land in place, or
+itself ~356 m from its own home, and `RTL` does exactly what it says. Land in place, or
 fly an explicit leg back to `spawn.geo` from the manifest. Both example controllers do
 the latter under `--rtl`.
 
@@ -208,5 +186,5 @@ These are not bugs, but they cost time the first time:
   check for stale processes first — `uavsim down --gazebo`, then `uavsim verify --live`.
 - **Exactly one `<plane>` collision per world.** A second one makes the ground-contact
   LCP singular in DART and freezes the physics step, with no error message.
-- **The first run needs network access** to fetch 200 tree models from Gazebo Fuel,
-  and it is slow. See above.
+- **The first run needs network access** to fetch the tree models from Gazebo Fuel.
+  See above.

@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from .adapter import Instance
-from .world import BuiltWorld, RoiPlacement, enu_to_geo
+from .world import BuiltWorld, RoiPlacement, enu_to_geo, gcs_standoff_m, mission_extent
 
-SCHEMA_VERSION = 2   # 2 added targets.rois
+SCHEMA_VERSION = 3   # 2 added targets.rois; 3 made the ROI a square, dropped the runway
 
 
 def build(world: BuiltWorld, instances: list[Instance],
@@ -26,6 +26,8 @@ def build(world: BuiltWorld, instances: list[Instance],
               "longitude_deg": world.info.longitude_deg,
               "elevation_m": world.info.elevation_m}
     gcs_lat, gcs_lon = enu_to_geo(world.site_pose.x, world.site_pose.y, origin)
+    xmin, xmax, ymin, ymax = mission_extent(world.roi) if world.roi else (0.0,) * 4
+    corners = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -40,18 +42,16 @@ def build(world: BuiltWorld, instances: list[Instance],
             "id": world.roi.get("id"),
             "centre_enu": [0.0, 0.0],
             "centre_geo": [origin["latitude_deg"], origin["longitude_deg"]],
-            "mission_radius_m": world.roi.get("mission_radius_m"),
-            "scenery_radius_m": world.roi.get("scenery_radius_m"),
+            "size_m": world.roi.get("size_m"),
+            "mission_extent_enu": [xmin, xmax, ymin, ymax],
+            "boundary_geo": [[round(v, 8) for v in enu_to_geo(x, y, origin)]
+                             for x, y in corners],
         },
         "gcs": {
             "pose_enu": world.site_pose.as_list(),
             "geo": [gcs_lat, gcs_lon],
             "distance_to_roi_m": round((world.site_pose.x ** 2 + world.site_pose.y ** 2) ** 0.5, 1),
-            "runway": {
-                "length_m": world.site.runway_length_m,
-                "width_m": world.site.runway_width_m,
-                "heading": "toward the ROI (+X)",
-            },
+            "standoff_m": gcs_standoff_m(world.site_pose, world.site, world.roi),
             "pads": world.site.pad_capacity,
         },
         "targets": {

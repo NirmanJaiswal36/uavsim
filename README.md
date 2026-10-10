@@ -1,8 +1,8 @@
 # uavsim
 
 A ready-made Gazebo environment for testing UAV autonomy: a ground control station
-395 m west of a forest search area — 200 m of open ground between the runway end and
-the tree line — and a fleet of whatever aircraft you ask for. ArduPilot and PX4 in the
+west of a 500 m × 500 m forest search area — 100 m of open ground between the apron and
+the tree line — and a fleet of whatever quadcopters you ask for. ArduPilot and PX4 in the
 same world, spawned at runtime from a one-file scenario, with autopilots, cameras, a
 ROS 2 bridge and a machine-readable manifest.
 
@@ -25,13 +25,15 @@ Built for the MeitY Grand Challenge, useful for any multi-UAV work.
 
 ## What you get
 
-- **A ground control station** — 24 landing pads, a 120 m runway pointing at the forest,
-  a shelter, a mast and a windsock. Vehicles spawn here, not in the trees.
-- **A forest region of interest** — ~200 trees, grass and an 85 m boundary ring at the
-  world origin (about 2.3 ha of mission area). The world's geographic origin *is* the
-  ROI centre. The scenery is generated: see [`tools/gen_roi_forest.py`](tools/gen_roi_forest.py).
-  It is nested under one `forest_scenery` model, so Gazebo's entity tree stays short
-  enough to find your own vehicles in.
+- **A ground control station** — 24 landing pads on an apron facing the forest, a
+  shelter, a mast and a windsock. Vehicles spawn here, not in the trees. There is no
+  runway: every vehicle is a quadcopter.
+- **A forest region of interest** — a 500 m × 500 m square (25 ha) at the world origin,
+  ringed by boundary posts, with 726 trees and grass. The whole square is the search
+  area, and the world's geographic origin *is* its centre. The scenery is generated: see
+  [`tools/gen_roi_forest.py`](tools/gen_roi_forest.py). It is one static link inside a
+  `forest_scenery` model, which keeps it fast to load and keeps Gazebo's entity tree
+  short enough to find your own vehicles in.
 - **8 regions of interest** — themed search-and-rescue sites (survivor, wreckage, tent,
   supply crate, signal fire), each paired with a 2 m **ArUco 4x4_50** plate so detection
   is deterministic and scoreable. Placed from a seed, clear of trunks, and reported in
@@ -90,7 +92,7 @@ automatically — you do not need to set `GZ_SIM_SYSTEM_PLUGIN_PATH` or
 Build the SITL binaries you intend to use, once:
 
 ```bash
-cd ~/ardupilot && ./waf configure --board sitl && ./waf copter   # and ./waf plane
+cd ~/ardupilot && ./waf configure --board sitl && ./waf copter
 ```
 
 `uavsim` always runs SITL with `--no-rebuild`, because two `sim_vehicle.py` instances
@@ -117,9 +119,9 @@ rc 7 1200          # gimbal pitch (RC 6/7/8 = gimbal roll/pitch/yaw)
 The reference scenario puts 4 gimbal-carrying Iris and 2 PX4 X500 on the pads, and 8
 ArUco-marked search-and-rescue sites in the forest.
 
-200 trees are fetched from [Gazebo Fuel](https://app.gazebosim.org/fuel) the first time
-you load a world and cached in `~/.gz/fuel` — **the first run on a fresh machine needs
-network access and takes several minutes**, after which it works offline. Nothing else
+The two tree models (oak and pine) are fetched from [Gazebo Fuel](https://app.gazebosim.org/fuel)
+the first time you load a world and cached in `~/.gz/fuel` — **the first run on a fresh
+machine needs network access**, after which it works offline. Nothing else
 in the world is a Fuel model: the GCS, the grass, the targets and the ROI props are all
 local or inline, so only the trees cost you a download. Warm the cache once with
 `./bin/uavsim up scenarios/forest_static.yaml` before timing anything.
@@ -147,11 +149,10 @@ no bridge config.
 | `px4_x500` | Holybro X500 | PX4 SITL | pad | — | flight-tested |
 | `ardupilot_iris` | Iris | ArduCopter SITL | pad | — | not tested |
 | `px4_x500_depth` | Holybro X500 | PX4 SITL | pad | OAK-D Lite (RGB + depth) | not tested |
-| `px4_standard_vtol` | Standard VTOL | PX4 SITL | pad | — | not tested |
-| `px4_advanced_plane` | Fixed wing | PX4 SITL | runway | — | not tested |
-| `px4_rc_cessna` | Fixed wing | PX4 SITL | runway | — | not tested |
 | `static_iris` | Iris | none | pad | gimbal camera | not tested |
-| `ardupilot_zephyr` | Zephyr flying wing | ArduPlane SITL | runway | — | ⚠️ does not take off |
+
+Quadcopters only: every airframe must have `class: multirotor`, and the schema rejects
+anything else.
 
 **Status means what has actually been run**, not what is expected to work.
 *Flight-tested* means a fleet of them has been brought up, verified live and flown.
@@ -167,7 +168,7 @@ Known limitations are listed in [`docs/known-issues.md`](docs/known-issues.md).
 
 ### Targets
 
-`forest_rescue.yaml` ships **8 ROIs on** and fires off; the other two scenarios ship
+`forest_rescue.yaml` ships **8 ROIs on** and fires off; `forest_static.yaml` ships
 everything off. To change that:
 
 ```yaml
@@ -194,7 +195,6 @@ eight marker models ship — see [`docs/extending.md`](docs/extending.md) to add
 |---|---|
 | `scenarios/forest_rescue.yaml` | The reference run: 4 × Iris with gimbals + 2 × PX4 X500, GUI, tmux consoles |
 | `scenarios/forest_static.yaml` | One Iris, no autopilot, headless — world inspection, screenshots, CI |
-| `scenarios/zephyr_demo.yaml` | One ArduPlane flying wing on the runway (see [known issues](docs/known-issues.md)) |
 
 ## Commands
 
@@ -222,9 +222,12 @@ Each run writes to `$UAVSIM_RUN_DIR/<world>/` (default `/tmp/uavsim/<world>/`):
 
 ```jsonc
 {
-  "schema_version": 2,
-  "roi":  {"centre_geo": [-35.389138, 149.219188], "mission_radius_m": 85.0},
-  "gcs":  {"pose_enu": [-395, 0, 0, 0, 0, 0], "geo": [...], "distance_to_roi_m": 395.0},
+  "schema_version": 3,
+  "roi":  {"centre_geo": [-35.389138, 149.219188], "size_m": [500.0, 500.0],
+           "mission_extent_enu": [-250.0, 250.0, -250.0, 250.0],   // xmin, xmax, ymin, ymax
+           "boundary_geo": [[...], [...], [...], [...]]},           // SW, SE, NE, NW corners
+  "gcs":  {"pose_enu": [-365, 0, 0, 0, 0, 0], "geo": [...], "distance_to_roi_m": 365.0,
+           "standoff_m": 100.0, "pads": 24},
   "targets": {
     "fires": [{"enu": [...], "geo": [...]}], "casualties": [...],
     "rois": [{
@@ -326,7 +329,7 @@ PX4 vehicles are skipped with a warning: PX4 offboard needs a setpoint stream ab
 python3 -m pytest tests/ -q
 ```
 
-67 tests covering registry validation, capability merging, allocation invariants, SDF
+75 tests covering registry validation, capability merging, allocation invariants, SDF
 rendering, world building, casualty and ROI placement, the generated forest and marker
 assets, bridge generation, manifest content and the example clients' ROI assignment.
 They need no Gazebo and no SITL, and run in under two seconds.
@@ -343,10 +346,10 @@ They need no Gazebo and no SITL, and run in under two seconds.
   exactly one owner.
 - **There must be exactly one `<plane>` collision in a world.** A plane collision is an
   infinite half-space in DART; a second one makes the ground-contact LCP singular and
-  freezes the physics step. The apron, runway and grass patches are boxes or visual-only
+  freezes the physics step. The apron, pads and grass tiles are boxes or visual-only
   for this reason, and both `verify` and the test suite enforce the rule.
-- **The first run needs network** to fetch 200 trees from Gazebo Fuel, and can take
-  several minutes with no progress indication. Warm the cache with
+- **The first run needs network** to fetch the two tree models from Gazebo Fuel, with
+  no progress indication. Warm the cache with
   `./bin/uavsim up scenarios/forest_static.yaml` first.
 - **Expect a low real-time factor** with many vehicles and cameras. Under lock-step
   ArduPilot follows simulation time, so flight behaviour stays correct — it just runs

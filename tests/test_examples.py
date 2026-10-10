@@ -25,11 +25,11 @@ import manifest_io                                               # noqa: E402
 
 def _manifest(vehicles: int = 4, rois: int = 8, *, extra_out: bool = True) -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "world": {"name": "rescue",
                   "origin": {"latitude_deg": -35.389138, "longitude_deg": 149.219188,
                              "elevation_m": 580.0}},
-        "roi": {"id": "roi_forest", "mission_radius_m": 85.0},
+        "roi": {"id": "roi_forest", "mission_extent_enu": [-250.0, 250.0, -250.0, 250.0]},
         "targets": {
             "fires": [], "casualties": [],
             "rois": [{
@@ -45,12 +45,12 @@ def _manifest(vehicles: int = 4, rois: int = 8, *, extra_out: bool = True) -> di
         "vehicles": [{
             "name": f"ardupilot_iris_gimbal_{i}", "type": "ardupilot_iris_gimbal",
             "backend": "ardupilot", "index": i, "sysid": i + 1,
-            "spawn": {"enu": [-426.0, -15.0 + 6.0 * i, 0.0], "geo": [-35.39, 149.214]},
+            "spawn": {"enu": [-356.0, -15.0 + 6.0 * i, 0.0], "geo": [-35.39, 149.215]},
             "endpoints": {"mavlink": f"udp:127.0.0.1:{14650 + 10 * i}",
                           "extra_out": [f"127.0.0.1:{14750 + i}"] if extra_out else []},
         } for i in range(vehicles)] + [{
             "name": "px4_x500_0", "backend": "px4", "index": 0, "sysid": 90,
-            "spawn": {"enu": [-426.0, 9.0, 0.0], "geo": [-35.39, 149.214]},
+            "spawn": {"enu": [-356.0, 9.0, 0.0], "geo": [-35.39, 149.215]},
             "endpoints": {"mavlink_udp": "udpout:127.0.0.1:18570"},
         }],
     }
@@ -65,7 +65,7 @@ def run() -> manifest_io.Run:
 
 def test_manifest_io_round_trips_a_manifest(run):
     assert run.world == "rescue"
-    assert run.mission_radius_m == 85.0
+    assert run.mission_extent == (-250.0, 250.0, -250.0, 250.0)
     assert run.origin == (-35.389138, 149.219188, 580.0)
     assert len(run.vehicles) == 5 and len(run.rois) == 8
     assert [r.marker.aruco_id for r in run.rois] == list(range(8))

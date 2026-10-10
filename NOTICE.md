@@ -22,7 +22,6 @@ this repository builds from a single clone.
 |---|---|---|
 | `iris_with_standoffs` | [RotorS](https://github.com/ethz-asl/rotors_simulator) via ardupilot_gazebo | Fadri Furrer (ETH Zurich), John Hsu, Nate Koenig (OSRF) |
 | `gimbal_small_3d` | ardupilot_gazebo | ArduPilot Development Team |
-| `zephyr` | ardupilot_gazebo / Gazebo model database | Nate Koenig, Cole Biesemeyer |
 | `grasspatch_visual` | derived from a MOV.AI grass model | Luis Pinto (MOV.AI) |
 
 Each model directory keeps its original `model.config` with the upstream author and
@@ -30,8 +29,8 @@ licence metadata. Refer to those files for the authoritative attribution.
 
 ## Parameter files — `config/`
 
-`config/gazebo-iris-gimbal.parm` and `config/gazebo-zephyr.parm` are ArduPilot
-parameter sets. The values follow ArduPilot's own SITL defaults
+`config/gazebo-iris-gimbal.parm` is an ArduPilot
+parameter set. The values follow ArduPilot's own SITL defaults
 (`Tools/autotest/default_params/`), adapted for the models in this repository.
 
 ## Runtime assets fetched at first use
