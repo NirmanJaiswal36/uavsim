@@ -14,6 +14,7 @@ the spawn pose and put the EKF tens of metres off.
 
 from __future__ import annotations
 
+import os
 import shutil
 import time
 from pathlib import Path
@@ -33,7 +34,9 @@ class ArduPilotAdapter(AutopilotAdapter):
     # -- binaries ------------------------------------------------------------
 
     def binary_path(self, vehicle: str) -> Path:
-        root = Path(str(self.settings.get("ardupilot_root", "~/ardupilot"))).expanduser()
+        # the same variable bin/uavsim uses to find sim_vehicle.py
+        root = Path(os.environ.get("ARDUPILOT_ROOT")
+                    or str(self.settings.get("ardupilot_root", "~/ardupilot"))).expanduser()
         return root / str(self.settings.get("build_dir", "build/sitl/bin")) / \
             BINARIES.get(vehicle, vehicle.lower())
 

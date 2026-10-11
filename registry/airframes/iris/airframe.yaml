@@ -29,6 +29,4 @@ bindings:
     vars:
       vehicle: ArduCopter
       frame: gazebo-iris
-  static:
-    overlay: bindings/static.sdf.j2
 

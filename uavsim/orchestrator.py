@@ -384,8 +384,6 @@ def down(plan_: Plan, *, stop_gazebo: bool = True) -> list[str]:
     names: list[str] = []
     for inst in plan_.instances:
         names.extend(plan_.adapters[inst.vehicle.backend.id].stop_hints(inst))
-    if any(i.vehicle.backend.id == "px4" for i in plan_.instances):
-        names.append("MicroXRCEAgent")
     report.extend(supervisor.stop(names))
 
     if log_dir and log_dir.is_dir():

@@ -55,7 +55,8 @@
               "items": {"enum": ["survivor", "wreckage", "tent", "crate", "signal_fire"]}
             },
             "marker_dict": {"enum": ["4x4_50"]},
-            "marker_size_m": {"type": "number", "exclusiveMinimum": 0},
+            "marker_size_m": {"type": "number", "exclusiveMinimum": 0,
+                              "description": "must match models/aruco_marker_*/ (3 m)"},
             "first_marker_id": {"type": "integer", "minimum": 0},
             "min_tree_m": {"type": "number", "minimum": 0},
             "marker_min_tree_m": {"type": "number", "minimum": 0},

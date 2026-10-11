@@ -27,10 +27,11 @@ targets:
                                  # 'uavsim up --seed N' replays one.
 
 fleet:
+  # The one vehicle that ships: an ArduCopter Iris with a 3-axis gimbal camera, which
+  # the mission needs to read the markers. Raise the count for a bigger swarm (the
+  # apron has 24 pads), or add your own drone type -- see docs/CUSTOM_DRONES.md.
   - type: ardupilot_iris_gimbal
     count: 4
-  - type: px4_x500
-    count: 2
 
 spawn:
   spacing_m: 6                 # between landing pads; must clear 2x the biggest footprint
@@ -39,8 +40,7 @@ backends:
   ardupilot:
     # A dedicated MAVLink output per vehicle for MAVROS. The endpoint in 'mavlink'
     # (14650 + 10*index) is a single UDP port that exactly one process can bind, so
-    # examples/swarm/pymavlink_swarm.py and a mavros_node cannot share it. 14750+ is
-    # clear of PX4's 14540-14599 band, which ArduPilot must never enter.
+    # your own MAVLink client and a mavros_node cannot share it.
     extra_out: ["127.0.0.1:1475{index}"]
 
 ros2:

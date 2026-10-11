@@ -77,10 +77,11 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         roi_seed=_seed(rois.get("seed")),
         roi_types=tuple(rois.get("types") or DEFAULT_ROI_TYPES),
         roi_marker_dict=rois.get("marker_dict", "4x4_50"),
-        roi_marker_size_m=float(rois.get("marker_size_m", 2.0)),
+        roi_marker_size_m=float(rois.get("marker_size_m", 3.0)),
         roi_first_marker_id=int(rois.get("first_marker_id", 0)),
         roi_min_tree_m=float(rois.get("min_tree_m", 6.0)),
-        roi_marker_min_tree_m=float(rois.get("marker_min_tree_m", 7.5)),
+        roi_marker_min_tree_m=(float(rois["marker_min_tree_m"])
+                               if rois.get("marker_min_tree_m") is not None else None),
         roi_positions=rois.get("positions"),
     )
 

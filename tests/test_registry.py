@@ -54,10 +54,11 @@ def test_unknown_vehicle_names_the_known_ones(registry):
     assert "ardupilot_iris_gimbal" in str(exc.value)
 
 
-def test_binding_must_exist_for_backend(registry):
-    # iris has no px4 binding; resolving that pair must fail loudly
-    airframe = registry.airframes["iris"]
-    assert "px4" not in airframe.bindings
+def test_only_the_gimbal_iris_ships(registry):
+    """One vehicle, one autopilot: teams add their own via docs/CUSTOM_DRONES.md."""
+    assert set(registry.vehicles) == {"ardupilot_iris_gimbal"}
+    assert set(registry.backends) == {"ardupilot"}
+    assert set(registry.airframes["iris"].bindings) == {"ardupilot"}
 
 
 def test_every_airframe_is_a_quadcopter(registry):
@@ -89,15 +90,15 @@ def _allocate(registry, requests, site=DEFAULT_SITE):
                     run_dir=RUN_DIR)
 
 
-def test_mixed_fleet_gets_unique_names_sysids_and_instances(registry):
+def test_fleet_entries_get_unique_names_sysids_and_instances(registry):
     insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 3),
-                                 FleetRequest("px4_x500", 2)])
+                                 FleetRequest("ardupilot_iris_gimbal", 2, name_prefix="scout")])
     assert [i.name for i in insts] == [
         "ardupilot_iris_gimbal_0", "ardupilot_iris_gimbal_1", "ardupilot_iris_gimbal_2",
-        "px4_x500_0", "px4_x500_1"]
+        "scout_0", "scout_1"]
     assert [i.sysid for i in insts] == [1, 2, 3, 4, 5]
-    # per-backend instance numbers restart at zero, which is what -I / -i expect
-    assert [i.backend_index for i in insts] == [0, 1, 2, 0, 1]
+    # one SITL instance number per ArduPilot vehicle across the fleet: it is -I N
+    assert [i.backend_index for i in insts] == [0, 1, 2, 3, 4]
 
 
 def test_fdm_ports_are_unique_per_ardupilot_instance(registry, world):
@@ -124,8 +125,7 @@ def test_ardupilot_gcs_ports_avoid_px4s_onboard_mavlink_range(registry, world):
 
 
 def test_every_vehicle_gets_a_pad(registry):
-    insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 4),
-                                 FleetRequest("px4_x500", 2)])
+    insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 6)])
     pads = {(round(p.x, 3), round(p.y, 3))
             for p in (compose(DEFAULT_GCS_POSE, s) for s in DEFAULT_SITE.pad_slots())}
     assert {(round(i.pose.x, 3), round(i.pose.y, 3)) for i in insts} <= pads
@@ -148,14 +148,8 @@ def test_running_out_of_pads_is_an_error_not_a_pile_up(registry):
         _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", DEFAULT_SITE.pad_capacity + 1)])
 
 
-def test_singleton_payload_cannot_be_requested_twice(registry):
-    with pytest.raises(AllocationError, match="singleton"):
-        _allocate(registry, [FleetRequest("px4_x500_depth", 2)])
-
-
 def test_spawn_positions_do_not_overlap(registry):
-    insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 8),
-                                 FleetRequest("px4_x500", 4)])
+    insts = _allocate(registry, [FleetRequest("ardupilot_iris_gimbal", 12)])
     for a in insts:
         for b in insts:
             if a is b:
@@ -212,18 +206,13 @@ def test_payload_is_reflected_in_both_sdf_and_capabilities(registry, world):
     assert camera["gz_topic"].startswith(f"/world/{world.name}/model/{inst.name}/")
 
 
-def test_static_backend_has_no_autopilot_plugin(registry, world):
-    (_, sdf), = _render(registry, world, "static_iris")
-    assert "ArduPilotPlugin" not in sdf
-
-
 # -- generated marker assets ---------------------------------------------------
 
 def test_the_aruco_marker_models_are_well_formed():
     """The plate must be static, collision-free and carry its own texture: a
     collision here would be a second ground contact under every ROI."""
     root = Path(__file__).resolve().parents[1]
-    for marker_id in range(8):
+    for marker_id in range(10):
         model_dir = root / "models" / f"aruco_marker_{marker_id}"
         assert (model_dir / "model.config").is_file()
         sdf = (model_dir / "model.sdf").read_text()
@@ -253,7 +242,7 @@ def test_the_aruco_textures_decode_to_their_own_id():
     get_dict = getattr(cv2.aruco, "getPredefinedDictionary", None) \
         or cv2.aruco.Dictionary_get
     book = get_dict(cv2.aruco.DICT_4X4_50)
-    for marker_id in range(8):
+    for marker_id in range(10):
         path = (root / "models" / f"aruco_marker_{marker_id}" / "materials" / "textures"
                 / f"aruco_4x4_50_{marker_id}.png")
         image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)

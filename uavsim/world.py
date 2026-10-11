@@ -51,6 +51,8 @@ PROP_FOOTPRINTS: dict[str, tuple[tuple[float, float, float], ...]] = {
 }
 
 MARKER_PROP_GAP_M = 0.5        # daylight between a prop's footprint and its plate
+OAK_CANOPY_M = 5.0             # radius of the biggest canopy (tools/gen_roi_forest.py OAK)
+MARKER_CANOPY_GAP_M = 1.0      # daylight between that canopy and the plate's corner
 MARKER_Z_M = 0.05              # above every ground-hugging visual (grass at 0, scorch 0.02)
 
 
@@ -70,6 +72,12 @@ def marker_offset_m(roi_type: str, marker_size_m: float) -> float:
     return math.ceil(offset * 10.0) / 10.0
 
 
+def marker_min_tree_m(marker_size_m: float) -> float:
+    """Plate centre to any trunk: an oak's canopy, half the plate's diagonal, a metre."""
+    return math.ceil((OAK_CANOPY_M + marker_size_m / math.sqrt(2.0) + MARKER_CANOPY_GAP_M)
+                     * 10.0) / 10.0
+
+
 @dataclass
 class TargetSpec:
     fires: bool = True
@@ -81,11 +89,10 @@ class TargetSpec:
     roi_seed: int | None = 0             # None: draw one with new_seed() before building
     roi_types: tuple[str, ...] = DEFAULT_ROI_TYPES
     roi_marker_dict: str = "4x4_50"
-    roi_marker_size_m: float = 2.0
+    roi_marker_size_m: float = 3.0         # 3 m plate, 2.4 m marker: readable to ~25 m
     roi_first_marker_id: int = 0
     roi_min_tree_m: float = 6.0          # prop centre to trunk
-    roi_marker_min_tree_m: float = 7.5   # plate centre to trunk: a 5 m oak canopy, half
-                                         # the plate's diagonal and a metre to spare
+    roi_marker_min_tree_m: float | None = None   # None: marker_min_tree_m(size)
     roi_positions: list[list[float]] | None = None
 
 
@@ -263,6 +270,8 @@ def place_rois(roi: dict[str, Any], spec: TargetSpec,
     trees = [tuple(t) for t in roi.get("trees", [])]
     xmin, xmax, ymin, ymax = mission_extent(roi)
     half = spec.roi_marker_size_m / 2.0
+    min_tree = (spec.roi_marker_min_tree_m if spec.roi_marker_min_tree_m is not None
+                else marker_min_tree_m(spec.roi_marker_size_m))
     edge = 5.0
     plates: list[tuple[float, float]] = []
 
@@ -272,7 +281,7 @@ def place_rois(roi: dict[str, Any], spec: TargetSpec,
         if not (xmin + edge + half <= mx <= xmax - edge - half
                 and ymin + edge + half <= my <= ymax - edge - half):
             return False
-        if any(math.hypot(mx - tx, my - ty) < spec.roi_marker_min_tree_m for tx, ty in trees):
+        if any(math.hypot(mx - tx, my - ty) < min_tree for tx, ty in trees):
             return False
         if any(math.hypot(mx - px, my - py) < ROI_MIN_SEPARATION_M for px, py in plates):
             return False

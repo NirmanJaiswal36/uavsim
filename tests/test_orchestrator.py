@@ -85,9 +85,6 @@ def test_vehicles_are_spawned_only_after_the_gui_scene_is_ready(recorded_up):
     assert spawns, "forest_rescue spawns its ArduPilot vehicles from up()"
     assert "wait_for_gui" in calls
     assert calls.index("wait_for_gui") < spawns[0]
-    # and PX4 spawns its own model when its process starts, so that must wait too
-    px4 = [i for i, c in enumerate(calls) if c.startswith("run:px4")]
-    assert px4 and calls.index("wait_for_gui") < px4[0]
 
 
 def test_headless_runs_do_not_wait_for_a_gui(recorded_up):
@@ -196,7 +193,7 @@ def test_the_pose_recorder_starts_before_any_vehicle_is_spawned(monkeypatch, tmp
     calls = _recorded(monkeypatch, tmp_path)
     orchestrator.up(orchestrator.plan(_scenario(), check_environment=False),
                     wait_ready=False, start_bridge=False)
-    spawns = [i for i, c in enumerate(calls) if c.startswith(("spawn:", "run:px4"))]
+    spawns = [i for i, c in enumerate(calls) if c.startswith("spawn:")]
     assert f"run:{runlog.RECORDER}" in calls
     assert calls.index(f"run:{runlog.RECORDER}") < min(spawns)
 
@@ -233,7 +230,7 @@ def test_down_closes_and_packs_the_log(monkeypatch, tmp_path):
     sums = (log_dir / "SHA256SUMS").read_text()
     assert "ground_truth.json" in sums and "run_info.json" in sums
     info = json.loads((log_dir / "run_info.json").read_text())
-    assert info["ended_utc"] and len(info["fleet"]) == 6
+    assert info["ended_utc"] and len(info["fleet"]) == 4
     # a second down must not pack it again
     assert orchestrator.read_run_state(plan.run_dir).get("log_dir") is None
 

@@ -24,20 +24,22 @@ FOV (``models/gimbal_small_3d/model.sdf``), so the ground swath is 3.1148*h and 
 plate spans 205.5*S/h pixels.  A 4x4 marker with its black border is 6 modules across,
 and OpenCV needs roughly 3 px per module:
 
-    altitude   GSD      2.0 m plate   px per module
-      10 m     4.9 cm      41 px          6.9
-      15 m     7.3 cm      27 px          4.6     <- the recommended observe altitude
-      20 m     9.7 cm      21 px          3.4     marginal
-      25 m    12.2 cm      16 px          2.7     below the floor
+    altitude   GSD      3.0 m plate   px per module
+      10 m     4.9 cm      62 px          8.2
+      15 m     7.3 cm      41 px          5.5
+      20 m     9.7 cm      31 px          4.1     <- comfortable
+      25 m    12.2 cm      25 px          3.3     marginal
+      30 m    14.6 cm      21 px          2.7     below the floor
 
-Hence a 2.0 m plate carrying a 1.6 m marker, and a default survey altitude of 15 m.
+Hence a 3.0 m plate carrying a 2.4 m marker: readable from the 15-25 m a survey flies,
+where the old 2 m plate gave out above ~20 m.
 
 The PNGs are committed alongside this script so that ``uavsim world`` works on a
 machine with no OpenCV; ``--check`` regenerates them in memory and byte-compares, so a
 test can prove the committed files still match.  OpenCV is therefore an optional
 authoring dependency, never a runtime one.
 
-    python3 tools/gen_aruco_textures.py --ids 0-7
+    python3 tools/gen_aruco_textures.py --ids 0-9
 """
 
 from __future__ import annotations
@@ -115,7 +117,7 @@ def marker_png(dictionary: str, marker_id: int, *, px: int = 600,
 
     ``marker_fraction`` is the marker's share of the plate edge; the remainder is the
     white quiet zone the detector needs to find the marker's outer contour.  At the
-    defaults that is a 1.6 m marker with 0.2 m of white on a 2.0 m plate.
+    defaults that is a 2.4 m marker with 0.3 m of white on a 3.0 m plate.
     """
     try:
         import cv2
@@ -173,12 +175,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dict", dest="dictionary", default="4x4_50",
                     choices=sorted(DICTIONARIES))
-    ap.add_argument("--ids", default="0-7", help="e.g. 0-7 or 0,3,5 (default: 0-7)")
+    ap.add_argument("--ids", default="0-9", help="e.g. 0-9 or 0,3,5 (default: 0-9)")
     ap.add_argument("--px", type=int, default=600, help="plate texture size in pixels")
     ap.add_argument("--marker-fraction", type=float, default=0.8,
                     help="marker's share of the plate edge (default 0.8 -> 0.2 m quiet "
                          "zone on a 2 m plate)")
-    ap.add_argument("--size", type=float, default=2.0, help="plate side in metres")
+    ap.add_argument("--size", type=float, default=3.0, help="plate side in metres")
     ap.add_argument("--out-dir", type=Path, default=MODELS_DIR)
     ap.add_argument("--check", action="store_true",
                     help="regenerate in memory and byte-compare; exit 1 on a mismatch")

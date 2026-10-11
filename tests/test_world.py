@@ -21,6 +21,8 @@ from uavsim.allocator import FleetRequest, allocate              # noqa: E402
 from uavsim.registry import Registry                             # noqa: E402
 from uavsim.site import DEFAULT_GCS_POSE, DEFAULT_SITE, compose  # noqa: E402
 from uavsim.world import DEFAULT_ROI_TYPES, camera_eye_and_target  # noqa: E402
+
+PLATE_M = 3.0          # the side of models/aruco_marker_*/; see test_the_plate_models_are_3_m
 from uavsim.world import (PROP_FOOTPRINTS, TargetSpec, WorldSpec, build,  # noqa: E402
                           enu_to_geo, gcs_standoff_m, load_roi, marker_offset_m,
                           place_casualties, place_rois)
@@ -155,8 +157,7 @@ def test_bridge_config_is_valid_yaml_for_ros_gz_bridge(registry, tmp_path):
 
 
 def test_manifest_reports_everything_a_framework_needs(registry, built):
-    insts = _instances(registry, [FleetRequest("ardupilot_iris_gimbal", 2),
-                                  FleetRequest("px4_x500", 1)])
+    insts = _instances(registry, [FleetRequest("ardupilot_iris_gimbal", 3)])
     endpoints = {}
     for inst in insts:
         adapter = registry.adapter_class(inst.vehicle.backend.id)(
@@ -176,7 +177,7 @@ def test_manifest_reports_everything_a_framework_needs(registry, built):
     for vehicle in data["vehicles"]:
         assert vehicle["endpoints"]
         assert vehicle["spawn"]["geo"][0] < 0                    # southern hemisphere
-        assert vehicle["capabilities"]["autopilot"]["backend"] in ("ardupilot", "px4")
+        assert vehicle["capabilities"]["autopilot"]["backend"] == "ardupilot"
     sysids = [v["sysid"] for v in data["vehicles"]]
     assert len(set(sysids)) == len(sysids)
 
@@ -235,7 +236,7 @@ def test_rois_are_placed_clear_of_trunks_fires_and_each_other():
 def test_the_roi_marker_sits_beside_the_prop_not_under_it():
     placed = place_rois(load_roi("roi_forest"), TargetSpec(roi_count=10, roi_seed=17))
     for r in placed:
-        assert r.marker_offset_m == marker_offset_m(r.type, 2.0)
+        assert r.marker_offset_m == marker_offset_m(r.type, PLATE_M)
         assert math.hypot(r.marker_x - r.x, r.marker_y - r.y) \
             == pytest.approx(r.marker_offset_m)
 
@@ -246,14 +247,14 @@ def test_marker_offsets_clear_every_prop_footprint():
     must now clear its own prop's footprint."""
     assert set(PROP_FOOTPRINTS) == set(DEFAULT_ROI_TYPES)
     for roi_type in DEFAULT_ROI_TYPES:
-        offset = marker_offset_m(roi_type, 2.0)
+        offset = marker_offset_m(roi_type, PLATE_M)
         for cx, cy, r in PROP_FOOTPRINTS[roi_type]:
-            # the plate is inside a circle of radius sqrt(2) around its centre
-            assert math.hypot(offset - cx, cy) >= r + math.sqrt(2.0)
-    assert marker_offset_m("wreckage", 2.0) > 3.2 + math.sqrt(2.0)
+            # the plate is inside a circle of half its diagonal around its centre
+            assert math.hypot(offset - cx, cy) >= r + PLATE_M / math.sqrt(2.0)
+    assert marker_offset_m("wreckage", PLATE_M) > 3.2 + PLATE_M / math.sqrt(2.0)
 
 
-def _plate_points(r, size_m: float = 2.0, n: int = 5):
+def _plate_points(r, size_m: float = PLATE_M, n: int = 7):
     """A grid over the plate (axis-aligned in the world), in world coordinates."""
     h = size_m / 2.0
     steps = [-h + size_m * i / (n - 1) for i in range(n)]
@@ -280,8 +281,10 @@ def test_ten_visible_rois_place_for_any_seed():
         assert sorted(r.aruco_id for r in placed) == list(range(10))
         assert sorted(r.site for r in placed) == list(range(10))
         for r in placed:
-            assert xmin + 6 <= r.marker_x <= xmax - 6 and ymin + 6 <= r.marker_y <= ymax - 6
-            assert all(math.hypot(r.marker_x - tx, r.marker_y - ty) >= 7.5
+            lim = 5 + PLATE_M / 2
+            assert xmin + lim <= r.marker_x <= xmax - lim and ymin + lim <= r.marker_y <= ymax - lim
+            # 5 m oak canopy + half the plate's diagonal + 1 m
+            assert all(math.hypot(r.marker_x - tx, r.marker_y - ty) >= 8.2
                        for tx, ty in trees), (seed, r)
             for prop in placed:
                 assert not any(_in_footprint(prop, x, y) for x, y in _plate_points(r)), \
@@ -351,7 +354,7 @@ def test_the_manifest_does_not_publish_where_the_targets_are(built_with_rois):
     data = manifest_mod.build(built_with_rois, [], {})
     targets = data["targets"]
     assert targets["roi_count"] == 10
-    assert targets["marker"] == {"dictionary": "4x4_50", "size_m": 2.0,
+    assert targets["marker"] == {"dictionary": "4x4_50", "size_m": PLATE_M,
                                  "ids": list(range(10)),
                                  "normal": "+Z (horizontal, faces a nadir camera)"}
     text = json.dumps(data)
@@ -371,7 +374,7 @@ def test_the_ground_truth_carries_roi_and_marker_positions(built_with_rois):
         assert r["id"] == f"roi_{r['index']}"
         assert len(r["enu"]) == 2 and r["geo"][0] < 0        # southern hemisphere
         assert r["marker"]["dictionary"] == "4x4_50"
-        assert r["marker"]["size_m"] == 2.0
+        assert r["marker"]["size_m"] == PLATE_M
         assert r["marker"]["model"] == f"aruco_marker_{r['marker']['aruco_id']}"
 
 
@@ -506,3 +509,13 @@ def test_world_has_the_expected_lighting(built):
     assert 'name="sunUTC"' in text
     assert "0.001 0.625 -0.78" in text
     assert "<background>0.7 0.7 0.7 1</background>" in text
+
+
+def test_the_plate_models_are_3_m():
+    """The scenario default, the placement maths and the shipped models must agree."""
+    import re
+    assert TargetSpec().roi_marker_size_m == PLATE_M
+    for i in range(10):
+        sdf = (Path(__file__).resolve().parents[1] / "models" / f"aruco_marker_{i}"
+               / "model.sdf").read_text()
+        assert re.search(r"<size>3 3</size>", sdf), i
