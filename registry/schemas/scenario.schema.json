@@ -29,13 +29,24 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "fires": {"type": "boolean"},
-        "casualties": {
+        "rois": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "count": {"type": "integer", "minimum": 0},
-            "seed": {"type": "integer"},
+            "count": {"type": "integer", "minimum": 0, "maximum": 10,
+                      "description": "capped at the number of aruco_marker_* models that ship"},
+            "seed": {"oneOf": [{"type": "integer"}, {"const": "random"}],
+                     "description": "omit (or 'random') for a fresh layout every 'uavsim up'"},
+            "types": {
+              "type": "array",
+              "items": {"enum": ["survivor", "wreckage", "tent", "crate", "signal_fire"]}
+            },
+            "marker_dict": {"enum": ["4x4_50"]},
+            "marker_size_m": {"type": "number", "exclusiveMinimum": 0,
+                              "description": "must match models/aruco_marker_*/ (3 m)"},
+            "first_marker_id": {"type": "integer", "minimum": 0},
+            "min_tree_m": {"type": "number", "minimum": 0},
+            "marker_min_tree_m": {"type": "number", "minimum": 0},
             "positions": {
               "type": "array",
               "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 3}
@@ -79,6 +90,16 @@
     },
     "backends": {"type": "object", "description": "backend id -> settings overrides"},
     "supervisor": {"enum": ["tmux", "subprocess"]},
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "the pose log every run leaves in uavsim_runs/ (in the repo) for the judges",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "team": {"type": "string", "description": "names the log; 'uavsim up --team' overrides"},
+        "rate_hz": {"type": "number", "exclusiveMinimum": 0, "maximum": 60}
+      }
+    },
     "gazebo": {
       "type": "object",
       "additionalProperties": false,

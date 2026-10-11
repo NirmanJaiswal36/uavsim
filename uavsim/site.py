@@ -5,7 +5,27 @@ and ``allocator.py`` places vehicles on them, so pads in the picture and pads in
 the allocation can never drift apart.
 
 Site frame (before ``gcs_pose`` is applied): +X points at the ROI, the apron is
-behind the runway threshold, the shelter sits to the south.
+centred on the site origin, the shelter sits to the south.  Every vehicle is a
+multirotor and takes off from a pad, so there is no runway.
+
+Where ``DEFAULT_GCS_POSE`` comes from.  The site is not a point: the apron's front
+edge is the forest-facing extremity of the whole GCS, and the standoff we care
+about is the open ground between that edge and the forest.  We want 100 m of it::
+
+    forest_xmin - (X + apron_front_x) = 100
+    (-250)      - (X + 15)            = 100   ->   X = -365.0
+
+which lays the site out like this (world x, forest centre at 0)::
+
+    apron rear       -380.0
+    pad rows         -374.0 .. -356.0     the multirotors spawn here
+    apron front      -350.0
+    ................ 100 m of open ground
+    forest edge      -250.0               the boundary posts
+    forest centre       0.0               also the geographic origin
+
+So ``distance_to_roi_m`` in the manifest reads 365 m, not 100: it is measured from
+the site origin to the ROI centre, which is a different quantity.
 """
 
 from __future__ import annotations
@@ -18,23 +38,16 @@ from .adapter import Pose
 
 @dataclass(frozen=True)
 class SiteLayout:
-    # landing pads for anything that takes off vertically
     pad_rows: int = 4
     pad_cols: int = 6
     pad_spacing_m: float = 6.0
     pad_radius_m: float = 1.6
-    apron_x_m: float = -40.0      # apron centre, behind the runway threshold
+    apron_x_m: float = 0.0        # apron centre
     apron_y_m: float = 0.0
-
-    # runway for anything that rolls
-    runway_length_m: float = 120.0
-    runway_width_m: float = 10.0
-    runway_x0_m: float = -10.0    # threshold; runway runs +X, toward the ROI
-    runway_slot_spacing_m: float = 12.0
-    runway_slot_count: int = 6
+    apron_margin_m: float = 3.0   # apron extends this far past the pad grid
 
     def pad_slots(self) -> list[Pose]:
-        """Pad centres, nearest-the-runway first, left to right."""
+        """Pad centres, nearest-the-ROI row first, left to right."""
         slots: list[Pose] = []
         for row in range(self.pad_rows):
             for col in range(self.pad_cols):
@@ -44,10 +57,19 @@ class SiteLayout:
                 slots.append(Pose(x=x, y=y))
         return slots
 
-    def runway_slots(self) -> list[Pose]:
-        """Take-off positions along the runway centreline, threshold first."""
-        return [Pose(x=self.runway_x0_m + 6.0 + i * self.runway_slot_spacing_m, y=0.0)
-                for i in range(self.runway_slot_count)]
+    @property
+    def apron_length_m(self) -> float:
+        """Apron size along +X, toward the ROI."""
+        return self.pad_rows * self.pad_spacing_m + 2 * self.apron_margin_m
+
+    @property
+    def apron_width_m(self) -> float:
+        return self.pad_cols * self.pad_spacing_m + 2 * self.apron_margin_m
+
+    @property
+    def front_x_m(self) -> float:
+        """The forest-facing extremity of the site, in the site frame."""
+        return self.apron_x_m + self.apron_length_m / 2.0
 
     @property
     def pad_capacity(self) -> int:
@@ -58,7 +80,7 @@ class SiteLayout:
 
 
 DEFAULT_SITE = SiteLayout()
-DEFAULT_GCS_POSE = Pose(x=-500.0, y=0.0, z=0.0)
+DEFAULT_GCS_POSE = Pose(x=-365.0, y=0.0, z=0.0)   # 100 m of open ground; see above
 
 
 def compose(site_pose: Pose, local: Pose) -> Pose:

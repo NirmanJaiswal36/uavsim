@@ -1,5 +1,9 @@
-# The reference scenario: a swarm launches from a ground control station 500 m
-# west of a burning forest and flies in to search it.
+# The reference scenario: a quadcopter swarm launches from a ground control station
+# west of a 500 m x 500 m forest search area and flies in to find the targets
+# hidden in it.
+#
+# The front edge of the GCS apron is 100 m short of the forest edge (x = -250),
+# so the transit leg is short and the whole forest is the search area.
 #
 # Change the fleet block and re-run 'uavsim up' -- nothing else needs editing.
 # 'uavsim list vehicles' shows what else you can put there.
@@ -9,22 +13,31 @@ name: forest_rescue
 world:
   name: rescue
   roi: roi_forest              # the forest search area, centred on the world origin
-  gcs_pose: [-500, 0, 0, 0, 0, 0]
+  gcs_pose: [-365, 0, 0, 0, 0, 0]
 
 targets:
-  fires: false
-  casualties:
-    count: 0
-    # seed: 7                    # same seed, same layout, every run
+  rois:
+    count: 10                    # survivor / wreckage / tent / crate / signal fire, two
+                                 # of each, each tagged with an ArUco 4x4_50 plate (ids 0-9)
+    # seed: 17                   # omitted: a fresh layout on every 'uavsim up'.
+                                 # 'uavsim up --seed N' replays one.
 
 fleet:
+  # The one vehicle that ships: an ArduCopter Iris with a 3-axis gimbal camera, which
+  # the mission needs to read the markers. Raise the count for a bigger swarm (the
+  # apron has 24 pads), or add your own drone type -- see docs/CUSTOM_DRONES.md.
   - type: ardupilot_iris_gimbal
     count: 4
-  - type: px4_x500
-    count: 2
 
 spawn:
   spacing_m: 6                 # between landing pads; must clear 2x the biggest footprint
+
+backends:
+  ardupilot:
+    # A dedicated MAVLink output per vehicle for MAVROS. The endpoint in 'mavlink'
+    # (14650 + 10*index) is a single UDP port that exactly one process can bind, so
+    # your own MAVLink client and a mavros_node cannot share it.
+    extra_out: ["127.0.0.1:1475{index}"]
 
 ros2:
   bridge: true

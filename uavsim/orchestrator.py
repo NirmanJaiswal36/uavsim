@@ -8,14 +8,16 @@ registry/backends/, not editing this file.
 
 from __future__ import annotations
 
+import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from . import bridge as bridge_mod
 from . import manifest as manifest_mod
+from . import runlog
 from . import world as world_mod
 from .adapter import AutopilotAdapter, Instance
 from .allocator import allocate
@@ -53,14 +55,54 @@ def _run_dir(scenario: Scenario) -> Path:
     return RUNS_DIR / scenario.world.name
 
 
+RUN_STATE = "run_state.json"
+
+
+def read_run_state(run_dir: Path) -> dict[str, Any]:
+    """What ``up`` decided for the run in ``run_dir``; empty when nothing is up."""
+    try:
+        return json.loads((run_dir / RUN_STATE).read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _resolve_roi_seed(scenario: Scenario, run_dir: Path, roi_seed: int | None,
+                      attach: bool) -> int:
+    """The layout seed: explicit, else the running run's, else the scenario's, else new.
+
+    A scenario normally leaves the seed out so every run is a fresh layout. Anything
+    that talks to a run that is already up (spawn, down, verify) must rebuild *that*
+    layout, though -- ``add`` re-plans and rewrites the manifest -- so ``up`` records
+    the seed it drew and ``attach`` reads it back.
+    """
+    if roi_seed is not None:
+        return int(roi_seed)
+    if attach and "roi_seed" in (state := read_run_state(run_dir)):
+        return int(state["roi_seed"])
+    if scenario.world.targets.roi_seed is not None:
+        return scenario.world.targets.roi_seed
+    return world_mod.new_seed()
+
+
 def plan(scenario: Scenario, registry: Registry | None = None, *,
-         check_environment: bool = True) -> Plan:
-    """Resolve, allocate and render everything, touching nothing outside build/."""
+         check_environment: bool = True, roi_seed: int | None = None,
+         attach: bool = False) -> Plan:
+    """Resolve, allocate and render everything, touching nothing outside build/.
+
+    ``attach`` plans for the run that is already up, reusing its ROI layout;
+    without it a scenario that leaves the seed out gets a fresh one.
+    """
     registry = registry or Registry()
     run_dir = _run_dir(scenario)
 
+    # gazebo.start: false means 'up' joins a server that already has its ROIs
+    attach = attach or not scenario.gazebo.get("start", True)
+    seed = _resolve_roi_seed(scenario, run_dir, roi_seed, attach)
+    world_spec = replace(scenario.world,
+                         targets=replace(scenario.world.targets, roi_seed=seed))
+
     resource_paths = [str(PKG_ROOT / "models"), str(PKG_ROOT / "worlds"), str(BUILD_WORLDS)]
-    built = world_mod.build(scenario.world, BUILD_WORLDS,
+    built = world_mod.build(world_spec, BUILD_WORLDS,
                             resource_paths=resource_paths,
                             plugin_paths=[str(PKG_ROOT / "build")])
 
@@ -89,6 +131,9 @@ def plan(scenario: Scenario, registry: Registry | None = None, *,
                     built.info.resource_paths.append(path)
         if check_environment:
             problems.extend(adapter.preflight())
+
+    if check_environment and scenario.logging.get("enabled", True):
+        problems.extend(runlog.preflight())
 
     seen_types: set[str] = set()
     for inst in instances:
@@ -127,18 +172,46 @@ def render_all(plan_: Plan) -> dict[str, str | None]:
     return out
 
 
-def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> dict[str, Any]:
-    """Start Gazebo (unless already running), spawn the fleet, start the autopilots."""
+def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True,
+       team: str | None = None) -> dict[str, Any]:
+    """Start Gazebo (unless already running), spawn the fleet, start the autopilots.
+
+    Unless the scenario turns logging off, the run is also recorded: a log
+    directory with the ground truth is opened first, and the pose recorder is
+    running before the first vehicle is spawned. ``down`` closes and packs it.
+    """
     if plan_.problems:
         raise OrchestratorError("environment is not ready:\n  - " + "\n  - ".join(plan_.problems))
 
     scenario = plan_.scenario
     env = gazebo_env(plan_)
+    truth = manifest_mod.ground_truth(plan_.world)
+    rate_hz = float(scenario.logging.get("rate_hz", 10.0))
+    log_dir = None
+    if scenario.logging.get("enabled", True):
+        log_dir = runlog.create(team=runlog.team_name(team or scenario.logging.get("team")),
+                                scenario_path=scenario.path, world=plan_.world.info.name,
+                                roi_seed=plan_.world.targets.roi_seed, ground_truth=truth,
+                                rate_hz=rate_hz)
+        # the answers go to the judges' log, never next to the participants' manifest
+        (plan_.run_dir / runlog.GROUND_TRUTH).unlink(missing_ok=True)
+    else:
+        _write_json(plan_.run_dir / runlog.GROUND_TRUTH, truth)
+    # first, so that a run which dies half-way up can still be brought down cleanly
+    _write_json(plan_.run_dir / RUN_STATE, {
+        "scenario": str(scenario.path),
+        "world": plan_.world.info.name,
+        "roi_seed": plan_.world.targets.roi_seed,
+        "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "log_dir": str(log_dir) if log_dir else None,
+    })
     supervisor = Supervisor(session=f"uavsim-{plan_.world.info.name}",
                             log_dir=plan_.run_dir / "logs", kind=scenario.supervisor)
     supervisor.start_session()
 
     spawner = Spawner(world=plan_.world.info.name)
+    warnings: list[str] = []
+    started_gui = scenario.gazebo.get("start", True) and not scenario.gazebo.get("headless", False)
     if scenario.gazebo.get("start", True):
         supervisor.start_gazebo(plan_.world.info.sdf_path,
                                 headless=bool(scenario.gazebo.get("headless", False)),
@@ -147,6 +220,16 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
         raise OrchestratorError(
             f"world {plan_.world.info.name!r} never came up; check the gazebo window/log in "
             f"{supervisor.log_dir}")
+    # Spawning before the GUI's scene exists leaves those vehicles undrawn for the
+    # whole run -- see Spawner.wait_for_gui.
+    if started_gui and not spawner.wait_for_gui(timeout_s=120.0):
+        warnings.append("the Gazebo GUI never reported its 3D scene ready; vehicles were "
+                        "spawned anyway and may be missing from the GUI (they still fly)")
+    if log_dir:
+        supervisor.run(runlog.recorder_process(plan_.world.info.name, log_dir, rate_hz))
+        if wait_ready and not runlog.wait_recording(log_dir):
+            warnings.append(f"the pose recorder has not started; this run may not be logged "
+                            f"(see the '{runlog.RECORDER}' window or {supervisor.log_dir})")
 
     sdfs = render_all(plan_)
     for inst in plan_.instances:
@@ -195,7 +278,8 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True) -> di
     manifest_path = manifest_mod.write(data, plan_.run_dir / "manifest.json")
 
     return {"manifest": data, "manifest_path": manifest_path, "supervisor": supervisor,
-            "bridge_config": bridge_path, "ready": ready}
+            "bridge_config": bridge_path, "ready": ready, "warnings": warnings,
+            "log_dir": log_dir}
 
 
 def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
@@ -209,11 +293,9 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
     if not manifest_path.exists():
         raise OrchestratorError(
             f"no run to add to: {manifest_path} does not exist (use 'uavsim up' first)")
-    import json
 
     existing = json.loads(manifest_path.read_text())
     taken_names = {v["name"] for v in existing["vehicles"]}
-    first_sysid = max((v["sysid"] for v in existing["vehicles"]), default=0) + 1
     backend_offset: dict[str, int] = {}
     prefix_offset: dict[str, int] = {}
     for vehicle in existing["vehicles"]:
@@ -263,6 +345,12 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
     return {"instances": newcomers, "ready": ready, "manifest_path": manifest_path}
 
 
+def _write_json(path: Path, data: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return path
+
+
 def _bridge_process(config: Path):
     from .adapter import ProcessSpec
 
@@ -274,20 +362,42 @@ def _bridge_process(config: Path):
     )
 
 
-def down(plan_: Plan, *, stop_gazebo: bool = False) -> list[str]:
-    """Stop what we started. Gazebo is left alone unless asked."""
+def down(plan_: Plan, *, stop_gazebo: bool = True) -> list[str]:
+    """Stop what we started, Gazebo included, and close the run's log.
+
+    ``stop_gazebo=False`` keeps the server for a quick re-'up'. It is not the default:
+    a server whose GUI window was closed keeps running invisibly, holds the world's
+    gz topics and CPU, and is easily forgotten.
+
+    The pose recorder goes first, while every vehicle is still where it ended up,
+    and is waited for: the bag is only complete once it has written metadata.yaml.
+    """
+    state = read_run_state(plan_.run_dir)
+    log_dir = Path(state["log_dir"]) if state.get("log_dir") else None
+    report: list[str] = []
+    if log_dir and log_dir.is_dir():
+        report.append(runlog.stop_recorder(log_dir))
+
     supervisor = Supervisor(session=f"uavsim-{plan_.world.info.name}",
                             log_dir=plan_.run_dir / "logs", kind=plan_.scenario.supervisor)
     names: list[str] = []
     for inst in plan_.instances:
         names.extend(plan_.adapters[inst.vehicle.backend.id].stop_hints(inst))
-    if any(i.vehicle.backend.id == "px4" for i in plan_.instances):
-        names.append("MicroXRCEAgent")
-    report = supervisor.stop(names)
+    report.extend(supervisor.stop(names))
+
+    if log_dir and log_dir.is_dir():
+        packed = runlog.finish(log_dir, plan_.run_dir / "manifest.json")
+        report.append(f"run log: {packed['log_dir']} ({packed['samples']} pose samples)")
+        report.append(f"hand in: {packed['archive']}")
+        report.append(f"sha256:  {packed['sha256']}")
+        # closed: a second 'down' must not repack it
+        _write_json(plan_.run_dir / RUN_STATE, {**state, "log_dir": None})
     if stop_gazebo:
         # SIGINT, never SIGKILL: ArduPilotPlugin's lock-step wait only breaks on a signal.
         for name in ("gz", "ruby", "gz-sim-server", "gz-sim-gui"):
-            report.extend(Supervisor._kill_group(name))
+            report.extend(supervisor._kill_group(name))
+        # the layout dies with the world; the next 'up' draws a fresh one
+        (plan_.run_dir / RUN_STATE).unlink(missing_ok=True)
     return report
 
 

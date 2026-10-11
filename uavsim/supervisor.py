@@ -2,7 +2,7 @@
 
 Two backends:
 
-    tmux        one visible window per process -- the MAVProxy/PX4 consoles you
+    tmux        one visible window per process -- the MAVProxy consoles you
                 actually want to type into. Default.
     subprocess  detached children with log files, for CI and headless runs.
 

@@ -37,8 +37,8 @@ def allocate(requests: Iterable[FleetRequest], *, registry: Registry, site: Site
              first_sysid: int = 1) -> list[Instance]:
     """Resolve every request and place each vehicle at the GCS.
 
-    Vertical take-off airframes get apron pads, rolling ones get runway slots,
-    and everyone is turned to face the ROI (the world origin).
+    Every vehicle is a multirotor and gets an apron pad, turned to face the ROI
+    (the world origin).
     """
     resolved: list[tuple[FleetRequest, ResolvedVehicle]] = []
     for req in requests:
@@ -67,7 +67,6 @@ def allocate(requests: Iterable[FleetRequest], *, registry: Registry, site: Site
             singletons[rp.spec.id] = vehicle.id
 
     pads = iter(site.pad_slots())
-    runway = iter(site.runway_slots())
     backend_counter: dict[str, int] = {}
     name_counter: dict[str, int] = {}
     used_names: set[str] = set()
@@ -86,20 +85,14 @@ def allocate(requests: Iterable[FleetRequest], *, registry: Registry, site: Site
         backend_counter[vehicle.backend.id] = backend_index + 1
 
         radius = vehicle.airframe.footprint_radius_m
-        if vehicle.airframe.launch == "runway":
-            local = next(runway, None)
-            if local is None:
-                raise AllocationError(
-                    f"{name}: out of runway slots (site offers {site.runway_slot_count})")
-        else:
-            if not site.min_pad_spacing_ok(radius):
-                raise AllocationError(
-                    f"{name}: pad spacing {site.pad_spacing_m} m is below 2x the "
-                    f"{vehicle.airframe.id} footprint ({radius} m)")
-            local = next(pads, None)
-            if local is None:
-                raise AllocationError(
-                    f"{name}: out of landing pads (site offers {site.pad_capacity})")
+        if not site.min_pad_spacing_ok(radius):
+            raise AllocationError(
+                f"{name}: pad spacing {site.pad_spacing_m} m is below 2x the "
+                f"{vehicle.airframe.id} footprint ({radius} m)")
+        local = next(pads, None)
+        if local is None:
+            raise AllocationError(
+                f"{name}: out of landing pads (site offers {site.pad_capacity})")
 
         world_pose = compose(gcs_pose, local)
         yaw = heading_to(world_pose)

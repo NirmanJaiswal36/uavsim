@@ -1,7 +1,6 @@
 id: iris
 description: 3DR Iris quadrotor with standoffs (ArduPilot reference airframe).
 class: multirotor
-launch: pad
 
 model_uri: model://iris_with_standoffs
 base_link: iris_with_standoffs::base_link
@@ -30,6 +29,4 @@ bindings:
     vars:
       vehicle: ArduCopter
       frame: gazebo-iris
-  static:
-    overlay: bindings/static.sdf.j2
 

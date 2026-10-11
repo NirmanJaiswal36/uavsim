@@ -5,8 +5,8 @@
   <version>0.1.0</version>
   <description>
     ROS 2 bringup for the uavsim rescue environment: launches a scenario and the
-    generated ros_gz_bridge. Mission logic belongs to the framework under test,
-    not to this package.
+    generated ros_gz_bridge, and can attach one MAVROS node per ArduPilot vehicle.
+    Mission logic belongs to the framework under test, not to this package.
   </description>
   <maintainer email="114364237+NirmanJaiswal36@users.noreply.github.com">Nirman Jaiswal</maintainer>
   <license>LGPL-3.0</license>
@@ -19,6 +19,11 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+
+  <!-- mavros.launch.py only; sim.launch.py does not need these -->
+  <exec_depend>mavros</exec_depend>
+  <exec_depend>mavros_msgs</exec_depend>
+  <exec_depend>geographic_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

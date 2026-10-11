@@ -34,18 +34,27 @@ class Spawner:
 
     def wait_for_world(self, timeout_s: float = 60.0) -> bool:
         """True once the server answers scene/info for this world."""
-        deadline = time.time() + timeout_s
-        service = f"/world/{self.world}/scene/info"
-        while time.time() < deadline:
-            try:
-                out = subprocess.run(["gz", "service", "-l"], capture_output=True,
-                                     text=True, timeout=10)
-            except (OSError, subprocess.TimeoutExpired):
-                return False
-            if service in out.stdout:
-                return True
-            time.sleep(1.0)
-        return False
+        return _wait_for_service(f"/world/{self.world}/scene/info", timeout_s)
+
+    def wait_for_gui(self, timeout_s: float = 120.0, settle_s: float = 3.0) -> bool:
+        """True once the GUI's 3D scene exists and can show newly created entities.
+
+        The server is up long before the GUI is: the GUI still has to load the
+        render engine and build the scene from ~600 world entities. A model created
+        in that window is in physics, flies, and has a working autopilot -- and the
+        GUI never draws it, because the GUI's scene manager misses its creation.
+        That is the "drones are not spawning" bug, and it is a race, so it comes and
+        goes with how warm the Fuel cache and the GPU driver are.
+
+        ``/gui/move_to`` is advertised by the camera-tracking plugin only once the
+        render scene exists, in the same render pass in which the scene manager
+        initialises, so it is the readiness signal. ``settle_s`` covers the rest of
+        that pass.
+        """
+        if not _wait_for_service("/gui/move_to", timeout_s):
+            return False
+        time.sleep(settle_s)
+        return True
 
     def spawn(self, request: SpawnRequest) -> None:
         from gz.msgs10.boolean_pb2 import Boolean
@@ -84,6 +93,21 @@ class Spawner:
         ok, reply = self._node.request(f"/world/{self.world}/remove", req,
                                        Entity, Boolean, self.timeout_ms)
         return bool(ok and reply.data)
+
+
+def _wait_for_service(service: str, timeout_s: float) -> bool:
+    """True once ``service`` shows up in ``gz service -l``."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            out = subprocess.run(["gz", "service", "-l"], capture_output=True,
+                                 text=True, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        if service in out.stdout.split():
+            return True
+        time.sleep(1.0)
+    return False
 
 
 def _pose_msg(pose: Pose):

@@ -12,7 +12,7 @@ from .adapter import Pose
 from .allocator import FleetRequest
 from .registry import PKG_ROOT, Registry
 from .site import DEFAULT_GCS_POSE, DEFAULT_SITE, SiteLayout
-from .world import DEFAULT_ORIGIN, TargetSpec, WorldSpec
+from .world import DEFAULT_ORIGIN, DEFAULT_ROI_TYPES, TargetSpec, WorldSpec
 
 SCENARIOS_DIR = PKG_ROOT / "scenarios"
 
@@ -28,6 +28,8 @@ class Scenario:
     supervisor: str = "tmux"
     gazebo: dict[str, Any] = field(default_factory=lambda: {"headless": False, "verbosity": 3,
                                                             "start": True})
+    logging: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "team": None,
+                                                             "rate_hz": 10.0})
 
 
 def resolve_path(value: str | Path) -> Path:
@@ -39,6 +41,13 @@ def resolve_path(value: str | Path) -> Path:
         if candidate.exists():
             return candidate
     raise FileNotFoundError(f"no scenario at {value!r}; looked in {SCENARIOS_DIR}")
+
+
+def _seed(value: Any) -> int | None:
+    """A fixed layout seed, or None for "a fresh one every run" (absent or 'random')."""
+    if value is None or value == "random":
+        return None
+    return int(value)
 
 
 def load(path: str | Path, registry: Registry | None = None) -> Scenario:
@@ -57,12 +66,18 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         gcs_pose = Pose(x=x, y=y, z=z, roll=roll, pitch=pitch, yaw=yaw)
 
     targets_data = data.get("targets") or {}
-    casualties = targets_data.get("casualties") or {}
+    rois = targets_data.get("rois") or {}
     targets = TargetSpec(
-        fires=targets_data.get("fires", True),
-        casualty_count=int(casualties.get("count", 0)),
-        casualty_seed=int(casualties.get("seed", 0)),
-        casualty_positions=casualties.get("positions"),
+        roi_count=int(rois.get("count", 0)),
+        roi_seed=_seed(rois.get("seed")),
+        roi_types=tuple(rois.get("types") or DEFAULT_ROI_TYPES),
+        roi_marker_dict=rois.get("marker_dict", "4x4_50"),
+        roi_marker_size_m=float(rois.get("marker_size_m", 3.0)),
+        roi_first_marker_id=int(rois.get("first_marker_id", 0)),
+        roi_min_tree_m=float(rois.get("min_tree_m", 6.0)),
+        roi_marker_min_tree_m=(float(rois["marker_min_tree_m"])
+                               if rois.get("marker_min_tree_m") is not None else None),
+        roi_positions=rois.get("positions"),
     )
 
     world = WorldSpec(
@@ -92,4 +107,5 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         backends=data.get("backends") or {},
         supervisor=data.get("supervisor", "tmux"),
         gazebo={**defaults.gazebo, **(data.get("gazebo") or {})},
+        logging={**defaults.logging, **(data.get("logging") or {})},
     )
