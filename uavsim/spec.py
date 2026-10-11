@@ -3,7 +3,7 @@
 Four independent things, deliberately kept apart:
 
     airframe   physical vehicle (links, rotors, onboard sensors, envelope)
-    backend    autopilot software (ArduPilot SITL, PX4 SITL, none)
+    backend    autopilot software (ArduPilot SITL)
     binding    airframe x backend glue (joint names + motor constants + autopilot
                plugin) -- lives with the airframe because the joint names do
     payload    mountable sensor/actuator (gimbal camera, ...)

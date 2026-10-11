@@ -11,8 +11,8 @@ This reads the run manifest rather than a port table, so it follows the fleet.  
 needs the simulation to be *running*: the manifest is written by ``uavsim up``.
 
 Each vehicle gets its own ``fcu_url`` taken from ``endpoints.extra_out``.  That matters:
-``endpoints.mavlink`` (14650 + 10*index) is a single UDP socket, so if the pymavlink
-example holds it MAVROS gets nothing, silently.  Add this to the scenario::
+``endpoints.mavlink`` (14650 + 10*index) is a single UDP socket, so if your own
+MAVLink client holds it MAVROS gets nothing, silently.  Add this to the scenario::
 
     backends:
       ardupilot:
@@ -68,7 +68,7 @@ def _launch_setup(context, *args, **kwargs):
     nodes = []
     for vehicle in manifest.get("vehicles", []):
         if vehicle.get("backend") != "ardupilot":
-            continue                       # PX4 speaks DDS here, see endpoints.ros2_topics
+            continue                       # MAVROS speaks to ArduPilot vehicles only
         index = int(vehicle.get("index", 0))
         nodes.append(Node(
             package="mavros", executable="mavros_node", name="mavros",

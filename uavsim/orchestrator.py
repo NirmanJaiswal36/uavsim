@@ -296,7 +296,6 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
 
     existing = json.loads(manifest_path.read_text())
     taken_names = {v["name"] for v in existing["vehicles"]}
-    first_sysid = max((v["sysid"] for v in existing["vehicles"]), default=0) + 1
     backend_offset: dict[str, int] = {}
     prefix_offset: dict[str, int] = {}
     for vehicle in existing["vehicles"]:

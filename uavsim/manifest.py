@@ -92,14 +92,7 @@ def ground_truth(world: BuiltWorld) -> dict[str, Any]:
         "origin": origin,
         "roi_seed": world.targets.roi_seed,
         "rois": [_roi(r, origin, world.targets) for r in world.rois],
-        "fires": [_target(f[0], f[1], origin) for f in world.fires],
-        "casualties": [_target(c[0], c[1], origin) for c in world.casualties],
     }
-
-
-def _target(x: float, y: float, origin: dict[str, float]) -> dict[str, Any]:
-    lat, lon = enu_to_geo(x, y, origin)
-    return {"enu": [x, y], "geo": [round(lat, 8), round(lon, 8)]}
 
 
 def _roi(roi: RoiPlacement, origin: dict[str, float], spec: Any) -> dict[str, Any]:

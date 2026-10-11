@@ -73,7 +73,6 @@ def cmd_plan(args) -> int:
           f"{plan.world.info.elevation_m} m)")
     size = plan.world.roi.get("size_m") or ["?", "?"]
     print(f"roi        {plan.world.roi.get('id')}  {size[0]} x {size[1]} m, "
-          f"{len(plan.world.fires)} fires, {len(plan.world.casualties)} casualties, "
           f"{len(plan.world.rois)} rois")
     standoff = gcs_standoff_m(plan.world.site_pose, plan.world.site, plan.world.roi)
     print(f"gcs        {plan.world.site_pose.as_list()[:2]}  "

@@ -136,10 +136,9 @@ class ArduPilotAdapter(AutopilotAdapter):
             cmd.append("-w")
         if self.use_mavproxy():
             # Pin MAVProxy's output explicitly, and suppress sim_vehicle.py's
-            # own 14550 + 10*instance output. That default collides with PX4's
-            # onboard MAVLink (14580 + instance) from the 4th ArduPilot vehicle
-            # onwards, and would leave gcs_base/mavlink_url reporting a port
-            # that is not the one actually in use.
+            # own 14550 + 10*instance output: that is the port a ground station
+            # on the same machine usually holds, and it would leave
+            # gcs_base/mavlink_url reporting a port that is not the one in use.
             cmd.append("--no-extra-ports")
             cmd += ["--out", f"127.0.0.1:{self.gcs_port(inst)}"]
             for out in self._extra_outs(inst):

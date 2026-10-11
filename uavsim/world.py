@@ -1,8 +1,8 @@
-"""Builds the scenario world: base setup + ROI scenery + GCS site + targets.
+"""Builds the scenario world: base setup + forest + GCS site + search-and-rescue sites.
 
 The world deliberately contains no vehicles.  That is the whole point of the
-split: the same world file serves any fleet, and changing "three Iris" to "six
-Iris and two X500s" never touches SDF.
+split: the same world file serves any fleet, and changing "four Iris" to "eight"
+never touches SDF.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import random
 import secrets
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -51,7 +51,7 @@ PROP_FOOTPRINTS: dict[str, tuple[tuple[float, float, float], ...]] = {
 }
 
 MARKER_PROP_GAP_M = 0.5        # daylight between a prop's footprint and its plate
-OAK_CANOPY_M = 5.0             # radius of the biggest canopy (tools/gen_roi_forest.py OAK)
+OAK_CANOPY_M = 5.0             # radius of the biggest canopy: the oaks in roi_forest
 MARKER_CANOPY_GAP_M = 1.0      # daylight between that canopy and the plate's corner
 MARKER_Z_M = 0.05              # above every ground-hugging visual (grass at 0, scorch 0.02)
 
@@ -80,11 +80,6 @@ def marker_min_tree_m(marker_size_m: float) -> float:
 
 @dataclass
 class TargetSpec:
-    fires: bool = True
-    fire_lights: bool = False
-    casualty_count: int = 0
-    casualty_seed: int = 0
-    casualty_positions: list[list[float]] | None = None
     roi_count: int = 0
     roi_seed: int | None = 0             # None: draw one with new_seed() before building
     roi_types: tuple[str, ...] = DEFAULT_ROI_TYPES
@@ -140,8 +135,6 @@ class RoiPlacement:
 class BuiltWorld:
     info: WorldInfo
     roi: dict[str, Any]
-    fires: list[list[float]]
-    casualties: list[list[float]]
     site_pose: Pose
     site: SiteLayout
     rois: list[RoiPlacement] = field(default_factory=list)
@@ -195,21 +188,14 @@ def new_seed() -> int:
 def place_points(roi: dict[str, Any], count: int, seed: int, *,
                  min_tree_m: float = 3.0, min_self_m: float = 8.0,
                  edge_margin_m: float = 5.0,
-                 avoid: Sequence[tuple[Sequence[Sequence[float]], float]] = (),
                  accept: Callable[[float, float, float], bool] | None = None,
                  explicit: list[list[float]] | None = None,
                  attempts: int = 500, label: str = "point") -> list[list[float]]:
     """Deterministic, area-uniform rejection sampling inside the mission extent.
 
-    ``edge_margin_m`` keeps points off the boundary posts.  ``avoid`` is a sequence
-    of ``(points, min_distance)`` pairs, so one pass can keep clear of fires,
-    casualties and already-placed ROIs without three near-copies of this loop.
-    ``accept(x, y, yaw)`` is an extra test run last, so ``True`` means the point is
-    placed.
+    ``edge_margin_m`` keeps points off the boundary posts.  ``accept(x, y, yaw)`` is
+    an extra test run last, so ``True`` means the point is placed.
     Returns ``[x, y, yaw]`` triples; same seed, same layout, every run.
-
-    Without a fire clearance a casualty can land exactly on a fire marker, since
-    both are drawn uniformly over the same area.
     """
     if explicit:
         return [[p[0], p[1], p[2] if len(p) > 2 else 0.0] for p in explicit]
@@ -228,9 +214,6 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
             yaw = round(rng.uniform(0, 2 * math.pi), 3)
             if any(math.hypot(x - tx, y - ty) < min_tree_m for tx, ty in trees):
                 continue
-            if any(math.hypot(x - ax, y - ay) < keep_out
-                   for points, keep_out in avoid for ax, ay, *_ in points):
-                continue
             if any(math.hypot(x - px, y - py) < min_self_m for px, py, _ in placed):
                 continue
             if accept is not None and not accept(x, y, yaw):
@@ -244,21 +227,11 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
     return placed
 
 
-def place_casualties(roi: dict[str, Any], spec: TargetSpec,
-                     fires: list[list[float]] | None = None) -> list[list[float]]:
-    """Casualties: inside the mission extent, 3 m from trunks, 5 m from fires, 8 m apart."""
-    return place_points(roi, spec.casualty_count, spec.casualty_seed,
-                        min_tree_m=3.0, min_self_m=8.0, avoid=[(fires or [], 5.0)],
-                        explicit=spec.casualty_positions, label="casualty")
-
-
 ROI_MIN_SEPARATION_M = 15.0      # between props, and between plates
 
 
-def place_rois(roi: dict[str, Any], spec: TargetSpec,
-               fires: list[list[float]] | None = None,
-               casualties: list[list[float]] | None = None) -> list[RoiPlacement]:
-    """Search-and-rescue sites: clear of trunks, fires, casualties and each other.
+def place_rois(roi: dict[str, Any], spec: TargetSpec) -> list[RoiPlacement]:
+    """Search-and-rescue sites: clear of trunks and of each other.
 
     The plate, not just the prop, is what has to be *seen*, so the canopy clearance
     is checked at the plate: it sits metres out along the prop's heading, and an
@@ -291,7 +264,6 @@ def place_rois(roi: dict[str, Any], spec: TargetSpec,
     points = place_points(roi, spec.roi_count, spec.roi_seed or 0,
                           min_tree_m=spec.roi_min_tree_m, min_self_m=ROI_MIN_SEPARATION_M,
                           edge_margin_m=edge,
-                          avoid=[(fires or [], 8.0), (casualties or [], 8.0)],
                           accept=None if spec.roi_positions else plate_fits,
                           explicit=spec.roi_positions, attempts=5000, label="roi")
     sites = list(range(len(points)))
@@ -317,19 +289,11 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
     env = _env()
     roi = load_roi(spec.roi) if spec.roi else {}
 
-    fires = [list(f) for f in roi.get("fires", [])] if (spec.targets.fires and roi) else []
-    casualties = place_casualties(roi, spec.targets, fires) if roi else []
-
     pads = [compose(Pose(), slot) for slot in spec.site.pad_slots()]
     gcs_sdf = env.get_template("gcs_site.sdf.j2").render(
         site=spec.site, site_name="gcs_site", pads=pads, pose=spec.gcs_pose.as_sdf())
 
-    targets_sdf = ""
-    if fires or casualties:
-        targets_sdf = env.get_template("targets.sdf.j2").render(
-            fires=fires, casualties=casualties, fire_lights=spec.targets.fire_lights)
-
-    rois = place_rois(roi, spec.targets, fires, casualties) if roi else []
+    rois = place_rois(roi, spec.targets) if roi else []
     rois_sdf = env.get_template("rois.sdf.j2").render(
         rois=sorted(rois, key=lambda r: r.site), marker_z=MARKER_Z_M,
         marker_size_m=spec.targets.roi_marker_size_m,
@@ -341,7 +305,6 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         roi_id=spec.roi or "none",
         roi_fragment=f"{spec.roi}.sdf" if spec.roi else None,
         gcs_site=gcs_sdf,
-        targets=targets_sdf,
         rois=rois_sdf,
         terrain=terrain_patch(spec.gcs_pose, roi),
         camera_pose=_camera_pose(spec),
@@ -359,8 +322,7 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         resource_paths=list(resource_paths or []),
         plugin_paths=list(plugin_paths or []),
     )
-    return BuiltWorld(info=info, roi=roi, fires=fires, casualties=casualties,
-                      site_pose=spec.gcs_pose, site=spec.site, rois=rois,
+    return BuiltWorld(info=info, roi=roi, site_pose=spec.gcs_pose, site=spec.site, rois=rois,
                       targets=spec.targets)
 
 

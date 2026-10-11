@@ -16,10 +16,6 @@ world:
   gcs_pose: [-365, 0, 0, 0, 0, 0]
 
 targets:
-  fires: false
-  casualties:
-    count: 0
-    # seed: 7                    # same seed, same layout, every run
   rois:
     count: 10                    # survivor / wreckage / tent / crate / signal fire, two
                                  # of each, each tagged with an ArUco 4x4_50 plate (ids 0-9)

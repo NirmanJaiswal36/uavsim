@@ -1,7 +1,7 @@
 # Forest region-of-interest metadata.
-# GENERATED -- do not edit by hand. Regenerate with:
-#   python3 tools/gen_roi_forest.py --size 500 --oak 436 --pine 290 \
-#           --fires 40 --seed 20251007
+# Generated together with roi_forest.sdf; the tree list must match it, since the
+# site placement keeps plates out of these trees' canopies. Do not edit by hand. (The
+# generator, tools/gen_roi_forest.py, is in the history at the dev-archive tag.)
 id: roi_forest
 description: Forest search area, a 500 m x 500 m square centred on the world origin.
 centre: [0.0, 0.0]
@@ -12,47 +12,6 @@ ground_extent: [-250.0, 250.0, -250.0, 250.0]   # xmin, xmax, ymin, ymax
 generated_by: tools/gen_roi_forest.py
 generator_seed: 20251007
 generator_args: {size_m: 500.0, oak: 436, pine: 290, fires: 40}
-fires:
-  - [-232.16, 23.37, 0.40]
-  - [33.27, 209.66, 0.40]
-  - [6.97, -243.87, 0.40]
-  - [-44.52, 25.20, 0.40]
-  - [12.28, 166.69, 0.40]
-  - [-85.51, 210.68, 0.40]
-  - [35.99, -204.29, 0.40]
-  - [-238.92, 95.15, 0.40]
-  - [187.53, -18.13, 0.40]
-  - [-91.56, -159.34, 0.40]
-  - [162.60, 234.46, 0.40]
-  - [-167.55, -182.77, 0.40]
-  - [-125.66, 111.23, 0.40]
-  - [160.31, 73.25, 0.40]
-  - [104.42, 46.89, 0.40]
-  - [196.94, 124.47, 0.40]
-  - [101.30, 190.39, 0.40]
-  - [-72.96, -111.66, 0.40]
-  - [-31.09, -212.93, 0.40]
-  - [-173.46, 203.63, 0.40]
-  - [177.32, -63.54, 0.40]
-  - [-166.17, 113.31, 0.40]
-  - [49.98, 69.80, 0.40]
-  - [-129.77, 16.09, 0.40]
-  - [33.12, -219.89, 0.40]
-  - [131.04, -54.30, 0.40]
-  - [-208.17, -164.21, 0.40]
-  - [-178.86, -101.93, 0.40]
-  - [-43.55, -188.94, 0.40]
-  - [-196.88, -65.34, 0.40]
-  - [169.49, -107.37, 0.40]
-  - [-60.83, -186.50, 0.40]
-  - [42.55, -173.39, 0.40]
-  - [225.90, -9.69, 0.40]
-  - [31.47, -207.11, 0.40]
-  - [-42.57, 173.61, 0.40]
-  - [-202.64, -26.23, 0.40]
-  - [214.49, 238.46, 0.40]
-  - [-121.19, 36.71, 0.40]
-  - [174.56, 150.81, 0.40]
 trees:   # trunk positions, in SDF order; used to keep placed targets out of the canopy
   - [137.51, 98.16]
   - [-180.07, -222.90]

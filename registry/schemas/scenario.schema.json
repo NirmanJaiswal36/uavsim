@@ -29,19 +29,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "fires": {"type": "boolean"},
-        "casualties": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "count": {"type": "integer", "minimum": 0},
-            "seed": {"type": "integer"},
-            "positions": {
-              "type": "array",
-              "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 3}
-            }
-          }
-        },
         "rois": {
           "type": "object",
           "additionalProperties": false,

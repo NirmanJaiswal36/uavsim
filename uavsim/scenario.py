@@ -66,13 +66,8 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         gcs_pose = Pose(x=x, y=y, z=z, roll=roll, pitch=pitch, yaw=yaw)
 
     targets_data = data.get("targets") or {}
-    casualties = targets_data.get("casualties") or {}
     rois = targets_data.get("rois") or {}
     targets = TargetSpec(
-        fires=targets_data.get("fires", True),
-        casualty_count=int(casualties.get("count", 0)),
-        casualty_seed=int(casualties.get("seed", 0)),
-        casualty_positions=casualties.get("positions"),
         roi_count=int(rois.get("count", 0)),
         roi_seed=_seed(rois.get("seed")),
         roi_types=tuple(rois.get("types") or DEFAULT_ROI_TYPES),
