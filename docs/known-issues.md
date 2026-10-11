@@ -32,7 +32,7 @@ than failing obscurely.
 
 ## `uavsim down` can report PX4 as still alive
 
-`down --gazebo` sometimes prints `WARNING: N px4 still alive`. PX4 SITL exits a second or
+`down` sometimes prints `WARNING: N px4 still alive`. PX4 SITL exits a second or
 two after its DDS agent and Gazebo go, so the check runs slightly too early. Re-check with
 `pgrep -x px4` before doing anything about it; in practice the processes are gone.
 
@@ -183,7 +183,7 @@ These are not bugs, but they cost time the first time:
   timeout recovery. `uavsim verify --live` checks that simulation time is advancing.
 - **A leftover Gazebo server does not fail loudly.** Two servers can both bind the FDM
   ports via `SO_REUSEADDR` and silently split the stream. If a run behaves strangely,
-  check for stale processes first — `uavsim down --gazebo`, then `uavsim verify --live`.
+  check for stale processes first — `uavsim down`, then `uavsim verify --live`.
 - **Exactly one `<plane>` collision per world.** A second one makes the ground-contact
   LCP singular in DART and freezes the physics step, with no error message.
 - **The first run needs network access** to fetch the tree models from Gazebo Fuel.

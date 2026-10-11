@@ -102,6 +102,16 @@
     },
     "backends": {"type": "object", "description": "backend id -> settings overrides"},
     "supervisor": {"enum": ["tmux", "subprocess"]},
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "the pose log every run leaves in uavsim_runs/ (in the repo) for the judges",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "team": {"type": "string", "description": "names the log; 'uavsim up --team' overrides"},
+        "rate_hz": {"type": "number", "exclusiveMinimum": 0, "maximum": 60}
+      }
+    },
     "gazebo": {
       "type": "object",
       "additionalProperties": false,

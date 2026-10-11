@@ -19,6 +19,9 @@ mav.parm
 *.tlog
 *.tlog.raw
 
+# run logs (uavsim up/down): hand in the .tar.gz, never commit them
+uavsim_runs/
+
 # editor / OS
 *.swp
 *~

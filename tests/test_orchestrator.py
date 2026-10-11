@@ -14,7 +14,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from uavsim import orchestrator, scenario as scenario_mod      # noqa: E402
+from uavsim import orchestrator, runlog, scenario as scenario_mod      # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _private_log_root(monkeypatch, tmp_path):
+    """Never let a test leave run logs in the repo's real uavsim_runs/."""
+    monkeypatch.setenv("UAVSIM_LOG_DIR", str(tmp_path / "uavsim_runs"))
 
 
 class _Recorder:
@@ -31,6 +37,14 @@ class _Recorder:
 
     def run(self, spec):
         self.calls.append(f"run:{spec.name}")
+
+    def stop(self, names):
+        self.calls.append("stop")
+        return []
+
+    def _kill_group(self, name):
+        self.calls.append(f"kill:{name}")
+        return []
 
     # Spawner
     def wait_for_world(self, timeout_s: float = 0.0) -> bool:
@@ -144,19 +158,103 @@ def test_commands_on_a_running_run_keep_its_layout(monkeypatch, tmp_path):
             [(r.x, r.y) for r in up_plan.world.rois]
 
 
-def test_up_writes_the_answers_only_to_the_judge_file(monkeypatch, tmp_path):
-    import json
-
+def _recorded(monkeypatch, tmp_path) -> list[str]:
     monkeypatch.setattr(orchestrator, "RUNS_DIR", tmp_path)
     calls: list[str] = []
     monkeypatch.setattr(orchestrator, "Supervisor", lambda **kw: _Recorder(calls, **kw))
     monkeypatch.setattr(orchestrator, "Spawner", lambda **kw: _Recorder(calls, **kw))
-    plan = orchestrator.plan(_scenario(), check_environment=False)
-    result = orchestrator.up(plan, wait_ready=False, start_bridge=False)
+    return calls
 
-    truth = json.loads((plan.run_dir / "ground_truth.json").read_text())
+
+def test_up_writes_the_answers_only_to_the_judges_log(monkeypatch, tmp_path):
+    import json
+
+    _recorded(monkeypatch, tmp_path)
+    plan = orchestrator.plan(_scenario(), check_environment=False)
+    result = orchestrator.up(plan, wait_ready=False, start_bridge=False, team="Team Ørn #1")
+
+    log_dir = result["log_dir"]
+    assert log_dir.parent == tmp_path / "uavsim_runs"
+    assert log_dir.name.startswith("Team-rn-1_")
+    truth = json.loads((log_dir / "ground_truth.json").read_text())
     assert truth["roi_seed"] == plan.world.targets.roi_seed
     assert len(truth["rois"]) == 10
+    # not next to the manifest, where the participants' code looks
+    assert not (plan.run_dir / "ground_truth.json").exists()
     manifest = json.loads(result["manifest_path"].read_text())
     assert "rois" not in manifest["targets"]
     assert manifest["targets"]["roi_count"] == 10
+    assert str(log_dir) not in result["manifest_path"].read_text()
+
+    info = json.loads((log_dir / "run_info.json").read_text())
+    assert info["team"] == "Team-rn-1" and info["roi_seed"] == plan.world.targets.roi_seed
+    assert (log_dir / "scenario.yaml").read_text() == plan.scenario.path.read_text()
+    assert orchestrator.read_run_state(plan.run_dir)["log_dir"] == str(log_dir)
+
+
+def test_the_pose_recorder_starts_before_any_vehicle_is_spawned(monkeypatch, tmp_path):
+    calls = _recorded(monkeypatch, tmp_path)
+    orchestrator.up(orchestrator.plan(_scenario(), check_environment=False),
+                    wait_ready=False, start_bridge=False)
+    spawns = [i for i, c in enumerate(calls) if c.startswith(("spawn:", "run:px4"))]
+    assert f"run:{runlog.RECORDER}" in calls
+    assert calls.index(f"run:{runlog.RECORDER}") < min(spawns)
+
+
+def test_logging_can_be_turned_off(monkeypatch, tmp_path):
+    calls = _recorded(monkeypatch, tmp_path)
+    scn = _scenario()
+    scn.logging["enabled"] = False
+    plan = orchestrator.plan(scn, check_environment=False)
+    result = orchestrator.up(plan, wait_ready=False, start_bridge=False)
+    assert result["log_dir"] is None
+    assert f"run:{runlog.RECORDER}" not in calls
+    assert not (tmp_path / "uavsim_runs").exists()
+    assert (plan.run_dir / "ground_truth.json").exists()
+
+
+def test_down_closes_and_packs_the_log(monkeypatch, tmp_path):
+    import json
+    import tarfile
+
+    _recorded(monkeypatch, tmp_path)
+    plan = orchestrator.plan(_scenario(), check_environment=False)
+    log_dir = orchestrator.up(plan, wait_ready=False, start_bridge=False)["log_dir"]
+
+    report = orchestrator.down(orchestrator.plan(_scenario(), check_environment=False,
+                                                 attach=True))
+    assert "pose recorder: not running" in report
+    archive = log_dir.with_name(log_dir.name + ".tar.gz")
+    assert any(str(archive) in line for line in report)
+    with tarfile.open(archive) as tar:
+        names = tar.getnames()
+    for f in ("run_info.json", "ground_truth.json", "scenario.yaml", "SHA256SUMS"):
+        assert f"{log_dir.name}/{f}" in names
+    sums = (log_dir / "SHA256SUMS").read_text()
+    assert "ground_truth.json" in sums and "run_info.json" in sums
+    info = json.loads((log_dir / "run_info.json").read_text())
+    assert info["ended_utc"] and len(info["fleet"]) == 6
+    # a second down must not pack it again
+    assert orchestrator.read_run_state(plan.run_dir).get("log_dir") is None
+
+
+def test_down_stops_gazebo_unless_asked_to_keep_it(monkeypatch, tmp_path):
+    """A server left behind after its GUI window is closed runs on invisibly and
+    breaks the next replay of that world, so stopping it is the default."""
+    calls = _recorded(monkeypatch, tmp_path)
+    plan = orchestrator.plan(_scenario(), check_environment=False)
+    orchestrator.up(plan, wait_ready=False, start_bridge=False)
+    attached = orchestrator.plan(_scenario(), check_environment=False, attach=True)
+
+    orchestrator.down(attached, stop_gazebo=False)
+    assert not [c for c in calls if c.startswith("kill:")]
+    assert orchestrator.read_run_state(plan.run_dir)["roi_seed"] == plan.world.targets.roi_seed
+
+    orchestrator.down(attached)
+    assert "kill:gz-sim-server" in calls
+    assert orchestrator.read_run_state(plan.run_dir) == {}
+
+
+def test_logs_go_to_the_repo_by_default(monkeypatch):
+    monkeypatch.delenv("UAVSIM_LOG_DIR")
+    assert runlog.log_root() == REPO_ROOT / "uavsim_runs"

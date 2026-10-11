@@ -28,6 +28,8 @@ class Scenario:
     supervisor: str = "tmux"
     gazebo: dict[str, Any] = field(default_factory=lambda: {"headless": False, "verbosity": 3,
                                                             "start": True})
+    logging: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "team": None,
+                                                             "rate_hz": 10.0})
 
 
 def resolve_path(value: str | Path) -> Path:
@@ -109,4 +111,5 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         backends=data.get("backends") or {},
         supervisor=data.get("supervisor", "tmux"),
         gazebo={**defaults.gazebo, **(data.get("gazebo") or {})},
+        logging={**defaults.logging, **(data.get("logging") or {})},
     )

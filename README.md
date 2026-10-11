@@ -104,7 +104,7 @@ running `waf configure` at the same time corrupt each other's build directory.
 ./bin/uavsim up scenarios/forest_rescue.yaml    # world + fleet + autopilots + bridge
 tmux attach -t uavsim-rescue                    # one MAVProxy console per vehicle
 ./bin/uavsim verify scenarios/forest_rescue.yaml --live
-./bin/uavsim down scenarios/forest_rescue.yaml --gazebo
+./bin/uavsim down scenarios/forest_rescue.yaml
 ```
 
 Inside tmux: `Ctrl-b w` to switch vehicles, `Ctrl-b d` to detach. To fly one:
@@ -207,7 +207,7 @@ eight marker models ship — see [`docs/extending.md`](docs/extending.md) to add
 | `uavsim spawn SCENARIO TYPE [--count N] [--no-wait]` | Add vehicles to a run that is already up |
 | `uavsim verify SCENARIO [--live]` | Static checks; `--live` also checks the running sim |
 | `uavsim manifest SCENARIO` | Print the run manifest |
-| `uavsim down SCENARIO [--gazebo]` | Stop the fleet; `--gazebo` stops the server too |
+| `uavsim down SCENARIO [--keep-gazebo]` | Stop the fleet and Gazebo, close and pack the run log; `--keep-gazebo` leaves the server up |
 
 `bin/uavsim` is a wrapper around `python3 uavsim/cli.py` that also puts
 `$ARDUPILOT_ROOT/Tools/autotest` (default `~/ardupilot`) on `PATH`.

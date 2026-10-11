@@ -7,6 +7,8 @@
     uavsim up     scenarios/forest_rescue.yaml
     uavsim down   scenarios/forest_rescue.yaml
     uavsim verify scenarios/forest_rescue.yaml [--live]
+    uavsim review [<log>]                           # summary + top-down map of a run log
+    uavsim replay [<log>]                           # watch a run log again in Gazebo
 """
 
 from __future__ import annotations
@@ -109,9 +111,12 @@ def cmd_up(args) -> int:
         for problem in plan.problems:
             print(f"  - {problem}", file=sys.stderr)
         return 1
-    result = orchestrator.up(plan, wait_ready=not args.no_wait, start_bridge=not args.no_bridge)
+    result = orchestrator.up(plan, wait_ready=not args.no_wait, start_bridge=not args.no_bridge,
+                             team=args.team)
     print(_fleet_table(plan))
     print(f"\nmanifest   {result['manifest_path']}")
+    if result["log_dir"]:
+        print(f"run log    {result['log_dir']}  (closed and packed by 'uavsim down')")
     if result["bridge_config"]:
         print(f"bridge     {result['bridge_config']}")
     if scn.supervisor == "tmux":
@@ -144,7 +149,7 @@ def cmd_spawn(args) -> int:
 def cmd_down(args) -> int:
     scn = scenario_mod.load(args.scenario)
     plan = orchestrator.plan(scn, check_environment=False, attach=True)
-    for line in orchestrator.down(plan, stop_gazebo=args.gazebo):
+    for line in orchestrator.down(plan, stop_gazebo=not args.keep_gazebo):
         print(f"  {line}")
     return 0
 
@@ -163,6 +168,24 @@ def cmd_manifest(args) -> int:
         return 1
     print(json.dumps(json.loads(path.read_text()), indent=2))
     return 0
+
+
+def cmd_review(args) -> int:
+    from uavsim import review
+
+    run = review.load(args.log)
+    print(review.summary(run))
+    if not args.no_plot:
+        out = review.plot(run, Path(args.output) if args.output else review.default_plot_path(run))
+        print(f"\nmap        {out}")
+    return 0
+
+
+def cmd_replay(args) -> int:
+    from uavsim import review
+
+    run = review.load(args.log)
+    return review.replay(run, speed=args.speed, start_s=args.start)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -189,6 +212,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-wait", action="store_true", help="do not wait for autopilot heartbeats")
     p.add_argument("--no-bridge", action="store_true", help="write the bridge config but do not run it")
     p.add_argument("--no-check", action="store_true", help="skip backend preflight checks")
+    p.add_argument("--team", default=None,
+                   help="team name for the run log (default: logging.team, else your login)")
     p.add_argument("--seed", type=int, default=None,
                    help="replay the ROI layout of an earlier run (its seed is in that "
                         "run's ground_truth.json); default: a fresh layout")
@@ -201,9 +226,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-wait", action="store_true")
     p.set_defaults(func=cmd_spawn)
 
-    p = sub.add_parser("down", help="stop the autopilots started for a scenario")
+    p = sub.add_parser("down", help="stop the run: autopilots, Gazebo, and close the run log")
     p.add_argument("scenario")
-    p.add_argument("--gazebo", action="store_true", help="also stop the Gazebo server")
+    p.add_argument("--keep-gazebo", action="store_true",
+                   help="leave the Gazebo server running (and the ROI layout with it)")
+    # what stopping Gazebo used to need; it is the default now
+    p.add_argument("--gazebo", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_down)
 
     p = sub.add_parser("verify", help="check the environment, and optionally the running run")
@@ -215,11 +243,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("scenario")
     p.set_defaults(func=cmd_manifest)
 
+    p = sub.add_parser("review", help="summarise a run log and draw its tracks")
+    p.add_argument("log", nargs="?", help="log directory or .tar.gz (default: the newest run)")
+    p.add_argument("-o", "--output", help="where to write the map PNG")
+    p.add_argument("--no-plot", action="store_true")
+    p.set_defaults(func=cmd_review)
+
+    p = sub.add_parser("replay", help="replay a run log in Gazebo, with trails")
+    p.add_argument("log", nargs="?", help="log directory or .tar.gz (default: the newest run)")
+    p.add_argument("--speed", type=float, default=5.0, help="sim seconds per real second")
+    p.add_argument("--start", type=float, default=0.0, help="skip the first N sim seconds")
+    p.set_defaults(func=cmd_replay)
+
     args = ap.parse_args(argv)
     try:
         return args.func(args)
     except (RegistryError, AllocationError, RenderError, FileNotFoundError,
-            orchestrator.OrchestratorError) as exc:
+            orchestrator.OrchestratorError, RuntimeError) as exc:
         print(f"uavsim: {exc}", file=sys.stderr)
         return 2
 
