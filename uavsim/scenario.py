@@ -78,6 +78,7 @@ def load(path: str | Path, registry: Registry | None = None) -> Scenario:
         roi_marker_min_tree_m=(float(rois["marker_min_tree_m"])
                                if rois.get("marker_min_tree_m") is not None else None),
         roi_positions=rois.get("positions"),
+        roi_staggered=True,              # not a scenario key: see world.ROI_AT_START
     )
 
     world = WorldSpec(
