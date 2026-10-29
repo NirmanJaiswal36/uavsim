@@ -112,6 +112,7 @@ def _roi(roi: RoiPlacement, origin: dict[str, float], spec: Any) -> dict[str, An
         "type": roi.type,
         "enu": [roi.x, roi.y],
         "yaw_rad": roi.yaw,
+        "appear_s": roi.appear_s,
         "geo": [round(lat, 8), round(lon, 8)],
         "marker": {
             "dictionary": spec.roi_marker_dict,

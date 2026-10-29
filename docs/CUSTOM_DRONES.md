@@ -135,6 +135,36 @@ Check it, then fly it:
 ./bin/uavsim up   scenarios/my_team.yaml --team my_team
 ```
 
+### Different settings for each drone
+
+A fleet entry's settings apply to every drone in it. To give drones different
+parameters, give each its own entry with its own `name_prefix` (`count` defaults to 1):
+
+```yaml
+fleet:
+  - type: ardupilot_iris_gimbal
+    name_prefix: lead                 # lead_0: system id 1
+    backend_config:
+      param_files: [config/gazebo-iris-gimbal.parm, config/lead.parm]
+  - type: ardupilot_iris_gimbal
+    name_prefix: scout                # scout_0, scout_1: system ids 2 and 3
+    count: 2
+    backend_config:
+      param_files: [config/gazebo-iris-gimbal.parm, config/fast_iris.parm]
+```
+
+A `param_files` list on a fleet entry **replaces** the vehicle type's list rather than
+adding to it, so always keep `config/gazebo-iris-gimbal.parm` first.
+
+**System ids, names and ports are assigned, not set.** A drone's MAVLink system id is
+its position in the whole fleet, counting every entry in order, plus 1; drones added
+with `uavsim spawn` continue the sequence. To decide which drone gets which id, order
+the entries. Do not put `SYSID_THISMAV` in a parameter file: `uavsim` starts each SITL
+with its assigned id, waits for a heartbeat from that id, and reports it in the
+manifest, so a drone whose id you change is reported as not ready and the manifest
+points your code at the wrong id. Read every drone's id, name and ports from the
+manifest (participant manual, §5.3).
+
 ---
 
 ## Level 3: your own airframe

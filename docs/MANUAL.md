@@ -45,6 +45,7 @@ in a run.
 | **Sites** | 10 sites, two each of five types: survivor, aircraft wreckage, tent, supply crate, signal fire. |
 | **Markers** | Each site has one **ArUco 4x4_50** marker (ids **0–9**) printed on a **3 m × 3 m** horizontal white plate lying face up on the ground beside the site's prop. The black marker itself is 2.4 m across. A plate is never under a tree canopy and never under its prop. |
 | **Layout** | **Every `uavsim up` places the 10 sites at new random positions.** Marker ids and site types stay the same; where they are does not. Your solution has to search, not remember. |
+| **Timing** | **Not every site is there from the start.** A few sites are in the forest when the simulation starts; the rest appear one by one at random times, and all 10 are out within 20 minutes of sim time. An area that was empty when you flew over it may not be empty later. |
 
 **Coordinate frames.** Gazebo uses ENU, metres from the forest centre: x east, y north,
 z up. MAVLink local positions are NED: `north = y`, `east = x`, `down = −z`.
@@ -214,6 +215,9 @@ Drones are numbered in fleet order from 0. For drone *i*:
 | SITL's own port (MAVProxy's) | `tcp:127.0.0.1:<5760 + 10·i>` |
 
 Never hardcode these: read them from the manifest (§5.3), which always matches the run.
+They are assigned, not set: to choose which drone gets which id, order the fleet entries.
+To give individual drones their own ArduPilot parameters, see
+[Different settings for each drone](CUSTOM_DRONES.md#different-settings-for-each-drone).
 
 ### 4.4 Your own drones
 

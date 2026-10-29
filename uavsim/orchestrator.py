@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -56,6 +57,7 @@ def _run_dir(scenario: Scenario) -> Path:
 
 
 RUN_STATE = "run_state.json"
+ROI_SCHEDULE = "roi_schedule.json"
 
 
 def read_run_state(run_dir: Path) -> dict[str, Any]:
@@ -230,6 +232,11 @@ def up(plan_: Plan, *, wait_ready: bool = True, start_bridge: bool = True,
         if wait_ready and not runlog.wait_recording(log_dir):
             warnings.append(f"the pose recorder has not started; this run may not be logged "
                             f"(see the '{runlog.RECORDER}' window or {supervisor.log_dir})")
+    schedule = world_mod.roi_spawn_schedule(plan_.world)
+    if schedule:
+        # it says where every site is, so it goes with the ground truth, not the manifest
+        schedule_path = _write_json((log_dir or plan_.run_dir) / ROI_SCHEDULE, schedule)
+        supervisor.run(_roi_spawner_process(plan_.world.info.name, schedule_path))
 
     sdfs = render_all(plan_)
     for inst in plan_.instances:
@@ -345,10 +352,21 @@ def add(plan_: Plan, requests, *, wait_ready: bool = True) -> dict[str, Any]:
     return {"instances": newcomers, "ready": ready, "manifest_path": manifest_path}
 
 
-def _write_json(path: Path, data: dict[str, Any]) -> Path:
+def _write_json(path: Path, data: Any) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n")
     return path
+
+
+def _roi_spawner_process(world: str, schedule: Path):
+    from .adapter import ProcessSpec
+
+    return ProcessSpec(
+        name="roi_spawner",
+        cmd=[sys.executable, "-m", "uavsim.roi_spawner", "--world", world,
+             "--schedule", str(schedule)],
+        cwd=PKG_ROOT,
+    )
 
 
 def _bridge_process(config: Path):

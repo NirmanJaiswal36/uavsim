@@ -190,9 +190,11 @@
        (uavsim/world.py: PROP_FOOTPRINTS, marker_offset_m), and is always axis-aligned
        and horizontal: a nadir detector's pose output is then trivially interpretable.
        marker_z sits above every ground-hugging visual, so nothing z-fights the plate #}
+{% if plates|default(true) %}
     <include>
       <uri>model://aruco_marker_{{ r.aruco_id }}</uri>
       <name>site_{{ r.site }}_plate</name>
       <pose>{{ '%.2f'|format(r.marker_x) }} {{ '%.2f'|format(r.marker_y) }} {{ '%.2f'|format(marker_z) }} 0 0 0</pose>
     </include>
+{% endif %}
 {% endfor %}

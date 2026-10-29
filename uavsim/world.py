@@ -89,6 +89,7 @@ class TargetSpec:
     roi_min_tree_m: float = 6.0          # prop centre to trunk
     roi_marker_min_tree_m: float | None = None   # None: marker_min_tree_m(size)
     roi_positions: list[list[float]] | None = None
+    roi_staggered: bool = False          # False: every site is in the world from t=0
 
 
 @dataclass
@@ -121,6 +122,7 @@ class RoiPlacement:
     yaw: float
     marker_offset_m: float = 3.0
     site: int = 0
+    appear_s: float = 0.0          # sim time at which the site is spawned
 
     @property
     def marker_x(self) -> float:
@@ -229,6 +231,13 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
 
 ROI_MIN_SEPARATION_M = 15.0      # between props, and between plates
 
+# When the sites show up, for a staggered run: 1-3 of them are in the world from the
+# start, the rest are spawned at random sim times in the window, so all are out by
+# 20 min. Fixed here and not in the scenario, so a team cannot tune it; the draw comes
+# from the layout seed, so judges can recompute it from the logged roi_seed.
+ROI_AT_START = (1, 3)
+ROI_APPEAR_WINDOW_S = (30.0, 300.0)
+
 
 def place_rois(roi: dict[str, Any], spec: TargetSpec) -> list[RoiPlacement]:
     """Search-and-rescue sites: clear of trunks and of each other.
@@ -268,13 +277,42 @@ def place_rois(roi: dict[str, Any], spec: TargetSpec) -> list[RoiPlacement]:
                           explicit=spec.roi_positions, attempts=5000, label="roi")
     sites = list(range(len(points)))
     random.Random(f"sites-{spec.roi_seed}").shuffle(sites)
+    appear = [0.0] * len(points)
+    if spec.roi_staggered:
+        times = random.Random(f"appear-{spec.roi_seed}")
+        at_start = min(len(points), times.randint(*ROI_AT_START))
+        for i in times.sample(range(len(points)), len(points) - at_start):
+            appear[i] = round(times.uniform(*ROI_APPEAR_WINDOW_S), 1)
     return [RoiPlacement(id=i, type=types[i % len(types)],
                          aruco_id=spec.roi_first_marker_id + i,
                          x=point[0], y=point[1], yaw=point[2],
                          marker_offset_m=marker_offset_m(types[i % len(types)],
                                                          spec.roi_marker_size_m),
-                         site=sites[i])
+                         site=sites[i], appear_s=appear[i])
             for i, point in enumerate(points)]
+
+
+def roi_spawn_schedule(world: BuiltWorld) -> list[dict[str, Any]]:
+    """What ``uavsim.roi_spawner`` creates, and when: a prop and a plate per late site.
+
+    Sites with ``appear_s == 0`` are already in the world file and are not listed.
+    Ordered by ``appear_s``, so the list says which site arrives when -- it is ground
+    truth, and belongs with the judges' log.
+    """
+    template = _env().get_template("rois.sdf.j2")
+    out: list[dict[str, Any]] = []
+    for r in sorted((r for r in world.rois if r.appear_s), key=lambda r: (r.appear_s, r.site)):
+        prop = template.render(rois=[r], plates=False, marker_z=MARKER_Z_M,
+                               marker_size_m=world.targets.roi_marker_size_m,
+                               marker_dict=world.targets.roi_marker_dict)
+        # the create service overrides the SDF's own <pose>, so each entry carries it
+        out.append({"appear_s": r.appear_s, "name": f"site_{r.site}",
+                    "sdf": f'<?xml version="1.0"?>\n<sdf version="1.9">\n{prop}</sdf>\n',
+                    "pose": [round(r.x, 2), round(r.y, 2), 0.0, round(r.yaw, 3)]})
+        out.append({"appear_s": r.appear_s, "name": f"site_{r.site}_plate",
+                    "uri": f"model://aruco_marker_{r.aruco_id}",
+                    "pose": [round(r.marker_x, 2), round(r.marker_y, 2), MARKER_Z_M, 0.0]})
+    return out
 
 
 def _env() -> jinja2.Environment:
@@ -294,10 +332,12 @@ def build(spec: WorldSpec, out_dir: Path, *, resource_paths: list[str] | None = 
         site=spec.site, site_name="gcs_site", pads=pads, pose=spec.gcs_pose.as_sdf())
 
     rois = place_rois(roi, spec.targets) if roi else []
+    # only the sites there from t=0; the late ones are spawned (roi_spawn_schedule)
+    at_start = [r for r in rois if not r.appear_s]
     rois_sdf = env.get_template("rois.sdf.j2").render(
-        rois=sorted(rois, key=lambda r: r.site), marker_z=MARKER_Z_M,
+        rois=sorted(at_start, key=lambda r: r.site), marker_z=MARKER_Z_M,
         marker_size_m=spec.targets.roi_marker_size_m,
-        marker_dict=spec.targets.roi_marker_dict) if rois else ""
+        marker_dict=spec.targets.roi_marker_dict) if at_start else ""
 
     world_sdf = env.get_template("base_world.sdf.j2").render(
         world_name=spec.name,
