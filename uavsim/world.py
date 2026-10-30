@@ -233,10 +233,10 @@ ROI_MIN_SEPARATION_M = 15.0      # between props, and between plates
 
 # When the sites show up, for a staggered run: 1-3 of them are in the world from the
 # start, the rest are spawned at random sim times in the window, so all are out by
-# 20 min. Fixed here and not in the scenario, so a team cannot tune it; the draw comes
+# 5 min. Fixed here and not in the scenario, so a team cannot tune it; the draw comes
 # from the layout seed, so judges can recompute it from the logged roi_seed.
 ROI_AT_START = (1, 3)
-ROI_APPEAR_WINDOW_S = (30.0, 300.0)
+ROI_APPEAR_WINDOW_S = (30.0, 1800.0)
 
 
 def place_rois(roi: dict[str, Any], spec: TargetSpec) -> list[RoiPlacement]:
@@ -413,7 +413,7 @@ def camera_eye_and_target(spec: WorldSpec) -> tuple[Pose, Pose]:
                                       y=spec.site.apron_y_m + dy, z=dz))
     target = compose(spec.gcs_pose, Pose(x=spec.site.apron_x_m, y=spec.site.apron_y_m,
                                          z=CAMERA_TARGET_Z_M))
-    return eye, target
+    return eye, target #Every drone has a fixed battery life duration i.e. 20 minutes
 
 
 def _camera_pose(spec: WorldSpec) -> str:
