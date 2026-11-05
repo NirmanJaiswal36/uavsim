@@ -232,8 +232,8 @@ def place_points(roi: dict[str, Any], count: int, seed: int, *,
 ROI_MIN_SEPARATION_M = 15.0      # between props, and between plates
 
 # When the sites show up, for a staggered run: 1-3 of them are in the world from the
-# start, the rest are spawned at random sim times in the window, so all are out by
-# 5 min. Fixed here and not in the scenario, so a team cannot tune it; the draw comes
+# start, the rest are spawned at random sim times in the window, and the last of them
+# always at the end of it, so the final site appears at exactly 30 min. Fixed here and not in the scenario, so a team cannot tune it; the draw comes
 # from the layout seed, so judges can recompute it from the logged roi_seed.
 ROI_AT_START = (1, 3)
 ROI_APPEAR_WINDOW_S = (30.0, 1800.0)
@@ -281,8 +281,11 @@ def place_rois(roi: dict[str, Any], spec: TargetSpec) -> list[RoiPlacement]:
     if spec.roi_staggered:
         times = random.Random(f"appear-{spec.roi_seed}")
         at_start = min(len(points), times.randint(*ROI_AT_START))
-        for i in times.sample(range(len(points)), len(points) - at_start):
+        late = times.sample(range(len(points)), len(points) - at_start)
+        for i in late[:-1]:
             appear[i] = round(times.uniform(*ROI_APPEAR_WINDOW_S), 1)
+        if late:                     # sample order is random, so is which site is last
+            appear[late[-1]] = ROI_APPEAR_WINDOW_S[1]
     return [RoiPlacement(id=i, type=types[i % len(types)],
                          aruco_id=spec.roi_first_marker_id + i,
                          x=point[0], y=point[1], yaw=point[2],
